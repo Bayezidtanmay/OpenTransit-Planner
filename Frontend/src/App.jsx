@@ -1,22 +1,31 @@
 import { useState } from "react";
 import api from "./api";
+import LocationAutocomplete from "./components/LocationAutocomplete";
 
 function App() {
+  const [fromPlace, setFromPlace] = useState(null);
+  const [toPlace, setToPlace] = useState(null);
   const [routes, setRoutes] = useState([]);
   const [loading, setLoading] = useState(false);
 
   const searchJourney = async () => {
+    if (!fromPlace || !toPlace) {
+      alert("Please select both From and To locations from suggestions.");
+      return;
+    }
+
     setLoading(true);
+    setRoutes([]);
 
     try {
       const response = await api.post("/journeys/plan", {
-        fromLat: 60.1699,
-        fromLon: 24.9384,
-        toLat: 60.2055,
-        toLon: 24.6559,
+        fromLat: fromPlace.lat,
+        fromLon: fromPlace.lon,
+        toLat: toPlace.lat,
+        toLon: toPlace.lon,
       });
 
-      setRoutes(response.data.data.planConnection.edges);
+      setRoutes(response.data.data.planConnection.edges || []);
     } catch (error) {
       console.error(error);
       alert("Journey search failed");
@@ -32,15 +41,33 @@ function App() {
           <h1 className="text-3xl font-bold text-slate-900">
             OpenTransit Planner
           </h1>
+
           <p className="text-slate-600 mt-2">
             Helsinki open journey planner powered by Digitransit.
           </p>
 
+          <div className="grid md:grid-cols-2 gap-4 mt-6">
+            <LocationAutocomplete
+              label="From"
+              placeholder="Search starting point, e.g. Helsinki"
+              value={fromPlace}
+              onSelect={setFromPlace}
+            />
+
+            <LocationAutocomplete
+              label="To"
+              placeholder="Search destination, e.g. Leppävaara"
+              value={toPlace}
+              onSelect={setToPlace}
+            />
+          </div>
+
           <button
             onClick={searchJourney}
-            className="mt-5 bg-blue-700 text-white px-5 py-3 rounded-xl font-semibold hover:bg-blue-800"
+            disabled={loading}
+            className="mt-6 bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold hover:bg-blue-800 disabled:bg-slate-400"
           >
-            {loading ? "Searching..." : "Search sample journey"}
+            {loading ? "Searching routes..." : "Search journey"}
           </button>
         </div>
 
@@ -61,7 +88,7 @@ function App() {
                     key={legIndex}
                     className="border rounded-xl p-4 bg-slate-50"
                   >
-                    <div className="font-semibold">
+                    <div className="font-semibold text-slate-900">
                       {leg.mode}
                       {leg.route?.shortName ? ` — ${leg.route.shortName}` : ""}
                     </div>
@@ -79,6 +106,12 @@ function App() {
               </div>
             </div>
           ))}
+
+          {!loading && routes.length === 0 && (
+            <div className="bg-white rounded-2xl shadow p-6 text-slate-500">
+              Search a journey to see route options.
+            </div>
+          )}
         </div>
       </div>
     </div>
