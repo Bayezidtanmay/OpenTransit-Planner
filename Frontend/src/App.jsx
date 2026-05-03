@@ -2,6 +2,7 @@ import { useState } from "react";
 import api from "./api";
 import LocationAutocomplete from "./components/LocationAutocomplete";
 import JourneyMap from "./components/JourneyMap";
+import RouteOptionCard from "./components/RouteOptionCard";
 
 function App() {
   const [fromPlace, setFromPlace] = useState(null);
@@ -79,47 +80,13 @@ function App() {
         <div className="grid lg:grid-cols-2 gap-6">
           <div className="space-y-4">
             {routes.map((route, index) => (
-              <button
+              <RouteOptionCard
                 key={index}
-                onClick={() => setSelectedRouteIndex(index)}
-                className={`w-full text-left rounded-2xl shadow p-5 border transition ${selectedRouteIndex === index
-                    ? "bg-blue-50 border-blue-600"
-                    : "bg-white border-transparent"
-                  }`}
-              >
-                <h2 className="text-xl font-bold text-slate-900">
-                  Route option {index + 1}
-                </h2>
-
-                <p className="text-slate-600 mt-1">
-                  Duration: {Math.round(route.node.duration / 60)} minutes
-                </p>
-
-                <div className="mt-4 space-y-3">
-                  {route.node.legs.map((leg, legIndex) => (
-                    <div
-                      key={legIndex}
-                      className="border rounded-xl p-4 bg-slate-50"
-                    >
-                      <div className="font-semibold text-slate-900">
-                        {leg.mode}
-                        {leg.route?.shortName
-                          ? ` — ${leg.route.shortName}`
-                          : ""}
-                      </div>
-
-                      <div className="text-sm text-slate-600 mt-1">
-                        {leg.from.name} → {leg.to.name}
-                      </div>
-
-                      <div className="text-sm text-slate-500 mt-1">
-                        {Math.round(leg.duration / 60)} min ·{" "}
-                        {Math.round(leg.distance)} m
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </button>
+                route={route}
+                index={index}
+                selected={selectedRouteIndex === index}
+                onSelect={() => setSelectedRouteIndex(index)}
+              />
             ))}
 
             {!loading && routes.length === 0 && (
