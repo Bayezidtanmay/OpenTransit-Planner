@@ -67,7 +67,7 @@ function JourneyMap({ selectedRoute }) {
     const end = [lastLeg.to.lat, lastLeg.to.lon];
 
     return (
-        <div className="bg-white rounded-2xl shadow overflow-hidden sticky top-6">
+        <div className="bg-white rounded-2xl shadow overflow-hidden">
             <div className="p-4 border-b">
                 <h2 className="text-xl font-bold text-slate-900">
                     Selected Route Map
@@ -92,7 +92,7 @@ function JourneyMap({ selectedRoute }) {
                 center={start}
                 zoom={12}
                 scrollWheelZoom={true}
-                className="h-140 w-full"
+                className="h-155 w-full"
             >
                 <TileLayer
                     attribution="Map tiles &copy; HSL / Digitransit / OpenStreetMap contributors"

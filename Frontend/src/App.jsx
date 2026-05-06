@@ -96,7 +96,9 @@ function App() {
             )}
           </div>
 
-          <JourneyMap selectedRoute={routes[selectedRouteIndex]} />
+          <div className="lg:sticky lg:top-6 self-start">
+            <JourneyMap selectedRoute={routes[selectedRouteIndex]} />
+          </div>
         </div>
       </div>
     </div>
