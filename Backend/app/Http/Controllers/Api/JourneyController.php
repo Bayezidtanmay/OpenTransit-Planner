@@ -56,9 +56,19 @@ class JourneyController extends Controller
                   distance
                   duration
                   route {
+                    gtfsId
                     shortName
                     longName
                     mode
+                  }
+                  trip {
+                    gtfsId
+                    stoptimes {
+                      scheduledDeparture
+                    }
+                    pattern {
+                      directionId
+                    }
                   }
                   legGeometry {
                     points
