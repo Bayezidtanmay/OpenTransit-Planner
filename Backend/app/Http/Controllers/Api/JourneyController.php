@@ -15,15 +15,21 @@ class JourneyController extends Controller
             'fromLon' => 'required|numeric',
             'toLat' => 'required|numeric',
             'toLon' => 'required|numeric',
+            'after' => 'nullable|string',
         ]);
 
         $query = <<<'GRAPHQL'
-        query PlanJourney($fromLat: CoordinateValue!, $fromLon: CoordinateValue!, $toLat: CoordinateValue!, $toLon: CoordinateValue!) {
+        query PlanJourney($fromLat: CoordinateValue!, $fromLon: CoordinateValue!, $toLat: CoordinateValue!, $toLon: CoordinateValue!, $after: String) {
           planConnection(
             origin: { location: { coordinate: { latitude: $fromLat, longitude: $fromLon } } }
             destination: { location: { coordinate: { latitude: $toLat, longitude: $toLon } } }
-            first: 3
+            first: 20
+            after: $after
           ) {
+            pageInfo {
+              hasNextPage
+              endCursor
+            }
             edges {
               node {
                 start
@@ -90,6 +96,7 @@ class JourneyController extends Controller
                 'fromLon' => (float) $validated['fromLon'],
                 'toLat' => (float) $validated['toLat'],
                 'toLon' => (float) $validated['toLon'],
+                'after' => $validated['after'] ?? null,
             ],
         ]);
 

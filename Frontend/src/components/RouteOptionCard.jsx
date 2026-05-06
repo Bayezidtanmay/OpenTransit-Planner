@@ -11,6 +11,29 @@ import {
     getTransportMode,
 } from "../utils/transportMode";
 
+const getJourneyDayLabel = (dateString) => {
+    if (!dateString) return null;
+
+    const journeyDate = new Date(dateString);
+    const today = new Date();
+    const tomorrow = new Date();
+
+    tomorrow.setDate(today.getDate() + 1);
+
+    const isTomorrow =
+        journeyDate.getFullYear() === tomorrow.getFullYear() &&
+        journeyDate.getMonth() === tomorrow.getMonth() &&
+        journeyDate.getDate() === tomorrow.getDate();
+
+    const isAfter6AM = journeyDate.getHours() >= 6;
+
+    if (isTomorrow && isAfter6AM) {
+        return "Tomorrow";
+    }
+
+    return null;
+};
+
 function RouteOptionCard({ route, index, selected, onSelect }) {
     const legs = route.node.legs;
     const firstLeg = legs[0];
@@ -18,6 +41,8 @@ function RouteOptionCard({ route, index, selected, onSelect }) {
 
     const startTime = formatTime(firstLeg.start.scheduledTime);
     const endTime = formatTime(lastLeg.end.scheduledTime);
+    const dayLabel = getJourneyDayLabel(firstLeg.start.scheduledTime);
+
     const totalDuration = formatDuration(route.node.duration);
     const transfers = legs.filter(
         (leg) => leg.mode !== "WALK" && leg.mode !== "BICYCLE"
@@ -38,12 +63,20 @@ function RouteOptionCard({ route, index, selected, onSelect }) {
                         Route option {index + 1}
                     </div>
 
+                    {dayLabel && (
+                        <span className="mt-2 inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">
+                            {dayLabel}
+                        </span>
+                    )}
+
                     <div className="mt-2 flex items-center gap-3">
                         <span className="text-2xl font-bold text-slate-900">
                             {startTime}
                         </span>
                         <ArrowRight size={18} className="text-slate-400" />
-                        <span className="text-2xl font-bold text-slate-900">{endTime}</span>
+                        <span className="text-2xl font-bold text-slate-900">
+                            {endTime}
+                        </span>
                     </div>
                 </div>
 

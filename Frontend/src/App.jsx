@@ -8,8 +8,10 @@ function App() {
   const [fromPlace, setFromPlace] = useState(null);
   const [toPlace, setToPlace] = useState(null);
   const [routes, setRoutes] = useState([]);
+  const [pageInfo, setPageInfo] = useState(null);
   const [selectedRouteIndex, setSelectedRouteIndex] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const searchJourney = async () => {
     if (!fromPlace || !toPlace) {
@@ -19,6 +21,8 @@ function App() {
 
     setLoading(true);
     setRoutes([]);
+    setPageInfo(null);
+    setSelectedRouteIndex(0);
 
     try {
       const response = await api.post("/journeys/plan", {
@@ -28,15 +32,43 @@ function App() {
         toLon: toPlace.lon,
       });
 
-      const journeyRoutes = response.data.data.planConnection.edges || [];
+      const planConnection = response.data.data.planConnection;
+      const journeyRoutes = planConnection.edges || [];
 
       setRoutes(journeyRoutes);
-      setSelectedRouteIndex(0);
+      setPageInfo(planConnection.pageInfo || null);
     } catch (error) {
       console.error(error);
       alert("Journey search failed");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadMoreJourneys = async () => {
+    if (!fromPlace || !toPlace || !pageInfo?.endCursor) return;
+
+    setLoadingMore(true);
+
+    try {
+      const response = await api.post("/journeys/plan", {
+        fromLat: fromPlace.lat,
+        fromLon: fromPlace.lon,
+        toLat: toPlace.lat,
+        toLon: toPlace.lon,
+        after: pageInfo.endCursor,
+      });
+
+      const planConnection = response.data.data.planConnection;
+      const newRoutes = planConnection.edges || [];
+
+      setRoutes((previousRoutes) => [...previousRoutes, ...newRoutes]);
+      setPageInfo(planConnection.pageInfo || null);
+    } catch (error) {
+      console.error(error);
+      alert("Loading more journeys failed");
+    } finally {
+      setLoadingMore(false);
     }
   };
 
@@ -93,6 +125,16 @@ function App() {
               <div className="bg-white rounded-2xl shadow p-6 text-slate-500">
                 Search a journey to see route options.
               </div>
+            )}
+
+            {pageInfo?.hasNextPage && routes.length > 0 && (
+              <button
+                onClick={loadMoreJourneys}
+                disabled={loadingMore}
+                className="w-full bg-white border border-blue-200 text-blue-700 rounded-2xl py-4 font-semibold shadow hover:bg-blue-50 disabled:bg-slate-100 disabled:text-slate-400"
+              >
+                {loadingMore ? "Loading more journeys..." : "Load more journeys"}
+              </button>
             )}
           </div>
 
