@@ -11,6 +11,7 @@ import L from "leaflet";
 import polyline from "@mapbox/polyline";
 import "leaflet/dist/leaflet.css";
 import LiveVehiclesLayer from "./LiveVehiclesLayer";
+import UserLocationMarker from "./UserLocationMarker";
 
 const getLineColor = (mode) => {
     const colors = {
@@ -38,7 +39,11 @@ const getTransitColorForMarker = (legs, index) => {
     const nextTransitLeg = legs.slice(index + 1).find(isTransitLeg);
     if (nextTransitLeg) return getLineColor(nextTransitLeg.mode);
 
-    const previousTransitLeg = [...legs].slice(0, index).reverse().find(isTransitLeg);
+    const previousTransitLeg = [...legs]
+        .slice(0, index)
+        .reverse()
+        .find(isTransitLeg);
+
     if (previousTransitLeg) return getLineColor(previousTransitLeg.mode);
 
     return "#2563eb";
@@ -81,6 +86,7 @@ function FitRouteBounds({ routeLines }) {
 
 function JourneyMap({ selectedRoute }) {
     const [showLiveVehicles, setShowLiveVehicles] = useState(false);
+    const [showUserLocation, setShowUserLocation] = useState(false);
 
     if (!selectedRoute) {
         return (
@@ -149,21 +155,35 @@ function JourneyMap({ selectedRoute }) {
     return (
         <div className="bg-white rounded-2xl shadow overflow-hidden">
             <div className="p-4 border-b">
-                <h2 className="text-xl font-bold text-slate-900">Selected Route Map</h2>
+                <h2 className="text-xl font-bold text-slate-900">
+                    Selected Route Map
+                </h2>
 
                 <p className="text-sm text-slate-500">
                     The map updates when you choose a different route option.
                 </p>
 
-                <button
-                    onClick={() => setShowLiveVehicles((value) => !value)}
-                    className={`mt-3 rounded-full px-4 py-2 text-sm font-semibold transition ${showLiveVehicles
-                            ? "bg-green-100 text-green-700"
-                            : "bg-slate-100 text-slate-700"
-                        }`}
-                >
-                    {showLiveVehicles ? "Hide live vehicles" : "Show live vehicles"}
-                </button>
+                <div className="flex flex-wrap gap-2">
+                    <button
+                        onClick={() => setShowLiveVehicles((value) => !value)}
+                        className={`mt-3 rounded-full px-4 py-2 text-sm font-semibold transition ${showLiveVehicles
+                                ? "bg-green-100 text-green-700"
+                                : "bg-slate-100 text-slate-700"
+                            }`}
+                    >
+                        {showLiveVehicles ? "Hide live vehicles" : "Show live vehicles"}
+                    </button>
+
+                    <button
+                        onClick={() => setShowUserLocation((value) => !value)}
+                        className={`mt-3 rounded-full px-4 py-2 text-sm font-semibold transition ${showUserLocation
+                                ? "bg-sky-100 text-sky-700"
+                                : "bg-slate-100 text-slate-700"
+                            }`}
+                    >
+                        {showUserLocation ? "Hide my location" : "Show my location"}
+                    </button>
+                </div>
             </div>
 
             <MapContainer
@@ -226,6 +246,8 @@ function JourneyMap({ selectedRoute }) {
                     routeLines={routeLines}
                     selectedLegs={legs.filter((leg) => leg.route)}
                 />
+
+                <UserLocationMarker enabled={showUserLocation} />
             </MapContainer>
         </div>
     );
