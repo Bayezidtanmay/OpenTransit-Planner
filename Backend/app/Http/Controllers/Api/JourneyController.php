@@ -76,6 +76,8 @@ class JourneyController extends Controller
                     shortName
                     longName
                     mode
+                    color
+                    textColor
                   }
                   trip {
                     gtfsId

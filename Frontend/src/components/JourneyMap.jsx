@@ -10,43 +10,84 @@ import {
 import L from "leaflet";
 import polyline from "@mapbox/polyline";
 import "leaflet/dist/leaflet.css";
+
 import LiveVehiclesLayer from "./LiveVehiclesLayer";
 import UserLocationMarker from "./UserLocationMarker";
 
-const getLineColor = (mode) => {
-    const colors = {
-        WALK: "#64748b",
-        BUS: "#2563eb",
-        RAIL: "#9333ea",
-        TRAM: "#16a34a",
-        SUBWAY: "#ea580c",
-        BICYCLE: "#059669",
-        FERRY: "#0891b2",
-    };
+const isTransitLeg = (leg) => leg.mode !== "WALK" && leg.mode !== "BICYCLE";
 
-    return colors[mode] || "#334155";
+const normalizeColor = (color) => {
+    if (!color) return null;
+
+    const cleanColor = color.toString().replace("#", "").trim();
+
+    if (cleanColor.length !== 6) return null;
+
+    return `#${cleanColor}`;
 };
 
-const isTransitLeg = (leg) => leg.mode !== "WALK" && leg.mode !== "BICYCLE";
+const getRouteColor = (leg) => {
+    const mode = leg.mode;
+    const route = leg.route?.shortName?.toUpperCase() || "";
+    const apiRouteColor = normalizeColor(leg.route?.color);
+
+    if (mode !== "WALK" && mode !== "BICYCLE" && apiRouteColor) {
+        return apiRouteColor;
+    }
+
+    if (mode === "SUBWAY") return "#ff6319";
+    if (mode === "TRAM") return "#00985f";
+    if (mode === "RAIL") return "#8c4799";
+    if (mode === "FERRY") return "#00b9e4";
+    if (mode === "BICYCLE") return "#059669";
+    if (mode === "WALK") return "#64748b";
+
+    const orangeBusRoutes = [
+        "20",
+        "30",
+        "40",
+        "50",
+        "200",
+        "300",
+        "400",
+        "500",
+        "510",
+        "520",
+        "530",
+        "540",
+        "550",
+        "560",
+        "570",
+        "600",
+    ];
+
+    if (mode === "BUS" && orangeBusRoutes.includes(route)) {
+        return "#ff5a1f";
+    }
+
+    if (mode === "BUS") return "#007ac9";
+
+    return "#334155";
+};
 
 const getTransitColorForMarker = (legs, index) => {
     const currentLeg = legs[index];
 
     if (currentLeg && isTransitLeg(currentLeg)) {
-        return getLineColor(currentLeg.mode);
+        return getRouteColor(currentLeg);
     }
 
     const nextTransitLeg = legs.slice(index + 1).find(isTransitLeg);
-    if (nextTransitLeg) return getLineColor(nextTransitLeg.mode);
+    if (nextTransitLeg) return getRouteColor(nextTransitLeg);
 
     const previousTransitLeg = [...legs]
         .slice(0, index)
         .reverse()
         .find(isTransitLeg);
 
-    if (previousTransitLeg) return getLineColor(previousTransitLeg.mode);
+    if (previousTransitLeg) return getRouteColor(previousTransitLeg);
 
-    return "#2563eb";
+    return "#007ac9";
 };
 
 const createStopIcon = (color, size = 18) =>
@@ -102,6 +143,7 @@ function JourneyMap({ selectedRoute }) {
         .filter((leg) => leg.legGeometry?.points)
         .map((leg) => ({
             mode: leg.mode,
+            color: getRouteColor(leg),
             positions: polyline.decode(leg.legGeometry.points),
         }));
 
@@ -137,7 +179,7 @@ function JourneyMap({ selectedRoute }) {
                     place.stop?.name || place.name,
                     place.lat,
                     place.lon,
-                    getLineColor(leg.mode)
+                    getRouteColor(leg)
                 );
             });
         }
@@ -206,7 +248,7 @@ function JourneyMap({ selectedRoute }) {
                         key={index}
                         positions={line.positions}
                         pathOptions={{
-                            color: getLineColor(line.mode),
+                            color: line.color,
                             weight: line.mode === "WALK" ? 4 : 7,
                             opacity: line.mode === "WALK" ? 0.65 : 0.95,
                             dashArray: line.mode === "WALK" ? "8 8" : null,
