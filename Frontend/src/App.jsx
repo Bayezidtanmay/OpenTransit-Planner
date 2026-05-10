@@ -12,6 +12,59 @@ function App() {
   const [selectedRouteIndex, setSelectedRouteIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [locating, setLocating] = useState(false);
+
+  const useCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      alert("Geolocation is not supported by your browser.");
+      return;
+    }
+
+    setLocating(true);
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const lat = position.coords.latitude;
+        const lon = position.coords.longitude;
+
+        try {
+          const response = await api.get("/geocode/reverse", {
+            params: { lat, lon },
+          });
+
+          const place = response.data.features?.[0];
+
+          setFromPlace({
+            label: place?.properties?.label || "Current location",
+            name: place?.properties?.name || "Current location",
+            lat,
+            lon,
+          });
+        } catch (error) {
+          console.error(error);
+
+          setFromPlace({
+            label: "Current location",
+            name: "Current location",
+            lat,
+            lon,
+          });
+        } finally {
+          setLocating(false);
+        }
+      },
+      (error) => {
+        console.error(error);
+        setLocating(false);
+        alert("Unable to get your current location.");
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 30000,
+      }
+    );
+  };
 
   const searchJourney = async () => {
     if (!fromPlace || !toPlace) {
@@ -85,12 +138,23 @@ function App() {
           </p>
 
           <div className="grid md:grid-cols-2 gap-4 mt-6">
-            <LocationAutocomplete
-              label="From"
-              placeholder="Search starting point, e.g. Helsinki"
-              value={fromPlace}
-              onSelect={setFromPlace}
-            />
+            <div>
+              <LocationAutocomplete
+                label="From"
+                placeholder="Search starting point, e.g. Helsinki"
+                value={fromPlace}
+                onSelect={setFromPlace}
+              />
+
+              <button
+                type="button"
+                onClick={useCurrentLocation}
+                disabled={locating}
+                className="mt-2 text-sm font-semibold text-blue-700 hover:text-blue-800 disabled:text-slate-400"
+              >
+                {locating ? "Finding your location..." : "Use current location"}
+              </button>
+            </div>
 
             <LocationAutocomplete
               label="To"

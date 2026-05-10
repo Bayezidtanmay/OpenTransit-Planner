@@ -31,4 +31,23 @@ class GeocodingController extends Controller
 
         return response()->json($response->json());
     }
+
+    public function reverse(Request $request)
+    {
+        $validated = $request->validate([
+            'lat' => 'required|numeric',
+            'lon' => 'required|numeric',
+        ]);
+
+        $response = Http::get(
+            'https://api.digitransit.fi/geocoding/v1/reverse',
+            [
+                'point.lat' => $validated['lat'],
+                'point.lon' => $validated['lon'],
+                'size' => 1,
+            ]
+        );
+
+        return response()->json($response->json());
+    }
 }

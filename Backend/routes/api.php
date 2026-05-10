@@ -13,3 +13,4 @@ Route::get('/user', function (Request $request) {
 Route::post('/journeys/plan', [JourneyController::class, 'plan']);
 Route::get('/geocode/search', [GeocodingController::class, 'search']);
 Route::get('/map/tiles/{z}/{x}/{y}', [MapTileController::class, 'tile']);
+Route::get('/geocode/reverse', [GeocodingController::class, 'reverse']);
