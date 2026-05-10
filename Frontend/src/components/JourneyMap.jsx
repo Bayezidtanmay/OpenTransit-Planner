@@ -78,36 +78,104 @@ const getTransitColorForMarker = (legs, index) => {
     }
 
     const nextTransitLeg = legs.slice(index + 1).find(isTransitLeg);
-    if (nextTransitLeg) return getRouteColor(nextTransitLeg);
+
+    if (nextTransitLeg) {
+        return getRouteColor(nextTransitLeg);
+    }
 
     const previousTransitLeg = [...legs]
         .slice(0, index)
         .reverse()
         .find(isTransitLeg);
 
-    if (previousTransitLeg) return getRouteColor(previousTransitLeg);
+    if (previousTransitLeg) {
+        return getRouteColor(previousTransitLeg);
+    }
 
     return "#007ac9";
 };
 
-const createStopIcon = (color, size = 18) =>
-    L.divIcon({
+const getMinutesBetween = (startTime, endTime) => {
+    const start = new Date(startTime).getTime();
+    const end = new Date(endTime).getTime();
+
+    if (Number.isNaN(start) || Number.isNaN(end)) return null;
+
+    return Math.max(0, Math.round((end - start) / 60000));
+};
+
+const isSameStopTransfer = (walkLeg) => {
+    if (!walkLeg) return false;
+
+    const distance = Number(walkLeg.distance || 0);
+
+    return distance <= 35;
+};
+
+const isSamePlace = (firstPlace, secondPlace) => {
+    if (!firstPlace || !secondPlace) return false;
+
+    const firstName = firstPlace.name?.trim().toLowerCase();
+    const secondName = secondPlace.name?.trim().toLowerCase();
+
+    const sameName = firstName && secondName && firstName === secondName;
+
+    const latDiff = Math.abs(Number(firstPlace.lat) - Number(secondPlace.lat));
+    const lonDiff = Math.abs(Number(firstPlace.lon) - Number(secondPlace.lon));
+
+    const veryClose = latDiff < 0.00025 && lonDiff < 0.00025;
+
+    return sameName || veryClose;
+};
+
+const createStopIcon = (color, size = 18, badge = null) => {
+    const badgeHtml = badge
+        ? `
+      <div style="
+        position:absolute;
+        left:50%;
+        top:-34px;
+        transform:translateX(-50%);
+        white-space:nowrap;
+        background:${badge.type === "walk" ? "#111827" : "#ffffff"};
+        color:${badge.type === "walk" ? "#ffffff" : "#111827"};
+        border:2px solid ${color};
+        border-radius:9999px;
+        padding:4px 9px;
+        font-size:12px;
+        font-weight:800;
+        box-shadow:0 3px 8px rgba(15,23,42,0.28);
+      ">
+        ${badge.label}
+      </div>
+    `
+        : "";
+
+    return L.divIcon({
         html: `
       <div style="
+        position:relative;
         width:${size}px;
         height:${size}px;
-        border-radius:9999px;
-        background:#ffffff;
-        border:5px solid ${color};
-        box-shadow:0 2px 6px rgba(15,23,42,0.35);
-        box-sizing:border-box;
-      "></div>
+      ">
+        ${badgeHtml}
+        <div style="
+          width:${size}px;
+          height:${size}px;
+          border-radius:9999px;
+          background:#ffffff;
+          border:${badge ? 6 : 5}px solid ${color};
+          box-shadow:0 2px 6px rgba(15,23,42,0.35);
+          box-sizing:border-box;
+        "></div>
+      </div>
     `,
         className: "custom-hsl-stop-marker",
         iconSize: [size, size],
         iconAnchor: [size / 2, size / 2],
         popupAnchor: [0, -size / 2],
     });
+};
 
 function FitRouteBounds({ routeLines }) {
     const map = useMap();
@@ -147,6 +215,79 @@ function JourneyMap({ selectedRoute }) {
             positions: polyline.decode(leg.legGeometry.points),
         }));
 
+    const transferMarkers = new Map();
+
+    legs.forEach((leg, index) => {
+        if (leg.mode !== "WALK") return;
+
+        const previousLeg = legs[index - 1];
+        const nextLeg = legs[index + 1];
+
+        if (!previousLeg || !nextLeg) return;
+        if (!isTransitLeg(previousLeg) || !isTransitLeg(nextLeg)) return;
+
+        const transferColor = getRouteColor(nextLeg);
+        const transferKey = `${leg.from.name}-${leg.from.lat}-${leg.from.lon}`;
+
+        if (isSameStopTransfer(leg)) {
+            const waitMinutes = getMinutesBetween(
+                previousLeg.end.scheduledTime,
+                nextLeg.start.scheduledTime
+            );
+
+            transferMarkers.set(transferKey, {
+                name: leg.from.name,
+                position: [leg.from.lat, leg.from.lon],
+                color: transferColor,
+                size: 28,
+                badge: {
+                    type: "wait",
+                    label: `Wait: ${waitMinutes ?? 0} min`,
+                },
+            });
+
+            return;
+        }
+
+        transferMarkers.set(transferKey, {
+            name: `${leg.from.name} → ${leg.to.name}`,
+            position: [leg.from.lat, leg.from.lon],
+            color: transferColor,
+            size: 26,
+            badge: {
+                type: "walk",
+                label: `Walk: ${Math.round(Number(leg.distance || 0))} m`,
+            },
+        });
+    });
+
+    legs.forEach((leg, index) => {
+        const nextLeg = legs[index + 1];
+
+        if (!nextLeg) return;
+        if (!isTransitLeg(leg) || !isTransitLeg(nextLeg)) return;
+        if (!isSamePlace(leg.to, nextLeg.from)) return;
+
+        const waitMinutes = getMinutesBetween(
+            leg.end.scheduledTime,
+            nextLeg.start.scheduledTime
+        );
+
+        const transferColor = getRouteColor(nextLeg);
+        const transferKey = `${nextLeg.from.name}-${nextLeg.from.lat}-${nextLeg.from.lon}`;
+
+        transferMarkers.set(transferKey, {
+            name: nextLeg.from.name,
+            position: [nextLeg.from.lat, nextLeg.from.lon],
+            color: transferColor,
+            size: 28,
+            badge: {
+                type: "wait",
+                label: `Wait: ${waitMinutes ?? 0} min`,
+            },
+        });
+    });
+
     const stopMarkers = [];
     const uniqueStops = new Set();
 
@@ -159,12 +300,15 @@ function JourneyMap({ selectedRoute }) {
 
         uniqueStops.add(key);
 
+        const transferMarker = transferMarkers.get(key);
+
         stopMarkers.push({
             key,
             name,
             position: [lat, lon],
-            color,
-            size,
+            color: transferMarker?.color || color,
+            size: transferMarker?.size || size,
+            badge: transferMarker?.badge || null,
         });
     };
 
@@ -260,8 +404,8 @@ function JourneyMap({ selectedRoute }) {
                     <Marker
                         key={marker.key}
                         position={marker.position}
-                        icon={createStopIcon(marker.color, marker.size)}
-                        zIndexOffset={2000}
+                        icon={createStopIcon(marker.color, marker.size, marker.badge)}
+                        zIndexOffset={marker.badge ? 4000 : 2000}
                     >
                         <Popup>{marker.name}</Popup>
                     </Marker>
