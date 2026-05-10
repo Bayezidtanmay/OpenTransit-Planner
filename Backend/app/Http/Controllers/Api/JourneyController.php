@@ -59,6 +59,16 @@ class JourneyController extends Controller
                     lat
                     lon
                   }
+                  intermediatePlaces {
+                    name
+                    lat
+                    lon
+                    stop {
+                      gtfsId
+                      name
+                      code
+                    }
+                  }
                   distance
                   duration
                   route {

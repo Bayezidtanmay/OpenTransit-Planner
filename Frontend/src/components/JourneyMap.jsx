@@ -5,8 +5,9 @@ import {
     Polyline,
     Popup,
     useMap,
-    CircleMarker,
+    Marker,
 } from "react-leaflet";
+import L from "leaflet";
 import polyline from "@mapbox/polyline";
 import "leaflet/dist/leaflet.css";
 import LiveVehiclesLayer from "./LiveVehiclesLayer";
@@ -25,32 +26,42 @@ const getLineColor = (mode) => {
     return colors[mode] || "#334155";
 };
 
+const isTransitLeg = (leg) => leg.mode !== "WALK" && leg.mode !== "BICYCLE";
+
 const getTransitColorForMarker = (legs, index) => {
     const currentLeg = legs[index];
 
-    if (currentLeg?.mode !== "WALK" && currentLeg?.mode !== "BICYCLE") {
+    if (currentLeg && isTransitLeg(currentLeg)) {
         return getLineColor(currentLeg.mode);
     }
 
-    const nextTransitLeg = legs
-        .slice(index + 1)
-        .find((leg) => leg.mode !== "WALK" && leg.mode !== "BICYCLE");
+    const nextTransitLeg = legs.slice(index + 1).find(isTransitLeg);
+    if (nextTransitLeg) return getLineColor(nextTransitLeg.mode);
 
-    if (nextTransitLeg) {
-        return getLineColor(nextTransitLeg.mode);
-    }
-
-    const previousTransitLeg = [...legs]
-        .slice(0, index)
-        .reverse()
-        .find((leg) => leg.mode !== "WALK" && leg.mode !== "BICYCLE");
-
-    if (previousTransitLeg) {
-        return getLineColor(previousTransitLeg.mode);
-    }
+    const previousTransitLeg = [...legs].slice(0, index).reverse().find(isTransitLeg);
+    if (previousTransitLeg) return getLineColor(previousTransitLeg.mode);
 
     return "#2563eb";
 };
+
+const createStopIcon = (color, size = 18) =>
+    L.divIcon({
+        html: `
+      <div style="
+        width:${size}px;
+        height:${size}px;
+        border-radius:9999px;
+        background:#ffffff;
+        border:5px solid ${color};
+        box-shadow:0 2px 6px rgba(15,23,42,0.35);
+        box-sizing:border-box;
+      "></div>
+    `,
+        className: "custom-hsl-stop-marker",
+        iconSize: [size, size],
+        iconAnchor: [size / 2, size / 2],
+        popupAnchor: [0, -size / 2],
+    });
 
 function FitRouteBounds({ routeLines }) {
     const map = useMap();
@@ -85,9 +96,48 @@ function JourneyMap({ selectedRoute }) {
         .filter((leg) => leg.legGeometry?.points)
         .map((leg) => ({
             mode: leg.mode,
-            routeName: leg.route?.shortName,
             positions: polyline.decode(leg.legGeometry.points),
         }));
+
+    const stopMarkers = [];
+    const uniqueStops = new Set();
+
+    const addStop = (name, lat, lon, color, size = 18) => {
+        if (!name || !lat || !lon) return;
+
+        const key = `${name}-${lat}-${lon}`;
+
+        if (uniqueStops.has(key)) return;
+
+        uniqueStops.add(key);
+
+        stopMarkers.push({
+            key,
+            name,
+            position: [lat, lon],
+            color,
+            size,
+        });
+    };
+
+    legs.forEach((leg, index) => {
+        const markerColor = getTransitColorForMarker(legs, index);
+
+        addStop(leg.from.name, leg.from.lat, leg.from.lon, markerColor);
+
+        if (isTransitLeg(leg) && Array.isArray(leg.intermediatePlaces)) {
+            leg.intermediatePlaces.forEach((place) => {
+                addStop(
+                    place.stop?.name || place.name,
+                    place.lat,
+                    place.lon,
+                    getLineColor(leg.mode)
+                );
+            });
+        }
+
+        addStop(leg.to.name, leg.to.lat, leg.to.lon, markerColor);
+    });
 
     const start = [legs[0].from.lat, legs[0].from.lon];
     const lastLeg = legs[legs.length - 1];
@@ -99,9 +149,7 @@ function JourneyMap({ selectedRoute }) {
     return (
         <div className="bg-white rounded-2xl shadow overflow-hidden">
             <div className="p-4 border-b">
-                <h2 className="text-xl font-bold text-slate-900">
-                    Selected Route Map
-                </h2>
+                <h2 className="text-xl font-bold text-slate-900">Selected Route Map</h2>
 
                 <p className="text-sm text-slate-500">
                     The map updates when you choose a different route option.
@@ -133,12 +181,6 @@ function JourneyMap({ selectedRoute }) {
 
                 <FitRouteBounds routeLines={routeLines} />
 
-                <LiveVehiclesLayer
-                    enabled={showLiveVehicles}
-                    routeLines={routeLines}
-                    selectedLegs={legs.filter((leg) => leg.route)}
-                />
-
                 {routeLines.map((line, index) => (
                     <Polyline
                         key={index}
@@ -152,58 +194,38 @@ function JourneyMap({ selectedRoute }) {
                     />
                 ))}
 
-                {legs.map((leg, index) => {
-                    const markerColor = getTransitColorForMarker(legs, index);
+                {stopMarkers.map((marker) => (
+                    <Marker
+                        key={marker.key}
+                        position={marker.position}
+                        icon={createStopIcon(marker.color, marker.size)}
+                        zIndexOffset={2000}
+                    >
+                        <Popup>{marker.name}</Popup>
+                    </Marker>
+                ))}
 
-                    return (
-                        <CircleMarker
-                            key={`stop-${index}`}
-                            center={[leg.from.lat, leg.from.lon]}
-                            radius={7}
-                            pathOptions={{
-                                color: markerColor,
-                                fillColor: "#ffffff",
-                                fillOpacity: 1,
-                                weight: 5,
-                                opacity: 1,
-                            }}
-                        >
-                            <Popup>
-                                {leg.mode}
-                                {leg.route?.shortName ? ` ${leg.route.shortName}` : ""}:{" "}
-                                {leg.from.name}
-                            </Popup>
-                        </CircleMarker>
-                    );
-                })}
-
-                <CircleMarker
-                    center={start}
-                    radius={9}
-                    pathOptions={{
-                        color: startColor,
-                        fillColor: "#ffffff",
-                        fillOpacity: 1,
-                        weight: 5,
-                        opacity: 1,
-                    }}
+                <Marker
+                    position={start}
+                    icon={createStopIcon(startColor, 20)}
+                    zIndexOffset={3000}
                 >
                     <Popup>Start: {legs[0].from.name}</Popup>
-                </CircleMarker>
+                </Marker>
 
-                <CircleMarker
-                    center={end}
-                    radius={9}
-                    pathOptions={{
-                        color: endColor,
-                        fillColor: "#ffffff",
-                        fillOpacity: 1,
-                        weight: 5,
-                        opacity: 1,
-                    }}
+                <Marker
+                    position={end}
+                    icon={createStopIcon(endColor, 20)}
+                    zIndexOffset={3000}
                 >
                     <Popup>Destination: {lastLeg.to.name}</Popup>
-                </CircleMarker>
+                </Marker>
+
+                <LiveVehiclesLayer
+                    enabled={showLiveVehicles}
+                    routeLines={routeLines}
+                    selectedLegs={legs.filter((leg) => leg.route)}
+                />
             </MapContainer>
         </div>
     );

@@ -1,1 +1,6 @@
 @import "tailwindcss";
+
+.custom-hsl-stop-marker {
+  background: transparent !important;
+  border: none !important;
+}
