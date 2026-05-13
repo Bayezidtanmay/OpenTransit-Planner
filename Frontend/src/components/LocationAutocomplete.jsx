@@ -15,7 +15,11 @@ const getPlaceIcon = (place) => {
     const name = place.properties?.name?.toLowerCase() || "";
     const label = place.properties?.label?.toLowerCase() || "";
 
-    if (modes.includes("SUBWAY") || name.includes("metro") || label.includes("metro")) {
+    if (
+        modes.includes("SUBWAY") ||
+        name.includes("metro") ||
+        label.includes("metro")
+    ) {
         return {
             Icon: Train,
             colorClass: "text-orange-600",
@@ -96,7 +100,13 @@ const getPlaceBadge = (place) => {
     return null;
 };
 
-function LocationAutocomplete({ label, placeholder, value, onSelect }) {
+function LocationAutocomplete({
+    label,
+    placeholder,
+    value,
+    onSelect,
+    markerColor = "blue",
+}) {
     const [query, setQuery] = useState(value?.label || "");
     const [suggestions, setSuggestions] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -104,11 +114,19 @@ function LocationAutocomplete({ label, placeholder, value, onSelect }) {
     const wrapperRef = useRef(null);
     const selectedLabelRef = useRef(value?.label || "");
 
+    const markerColorClass =
+        markerColor === "green" ? "text-green-600" : "text-red-600";
+
     useEffect(() => {
         if (value?.label) {
             selectedLabelRef.current = value.label;
             setQuery(value.label);
             setSuggestions([]);
+        }
+
+        if (!value) {
+            selectedLabelRef.current = "";
+            setQuery("");
         }
     }, [value]);
 
@@ -193,13 +211,21 @@ function LocationAutocomplete({ label, placeholder, value, onSelect }) {
                 {label}
             </label>
 
-            <input
-                type="text"
-                value={query}
-                placeholder={placeholder}
-                onChange={handleInputChange}
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:ring-2 focus:ring-blue-600"
-            />
+            <div className="relative">
+                <MapPin
+                    size={24}
+                    strokeWidth={2.8}
+                    className={`pointer-events-none absolute left-4 top-1/2 z-10 -translate-y-1/2 ${markerColorClass}`}
+                />
+
+                <input
+                    type="text"
+                    value={query}
+                    placeholder={placeholder}
+                    onChange={handleInputChange}
+                    className="w-full rounded-xl border border-slate-300 py-3 pl-12 pr-4 outline-none focus:ring-2 focus:ring-blue-600"
+                />
+            </div>
 
             {loading && (
                 <p className="absolute right-4 top-11 text-sm text-slate-400">
@@ -210,7 +236,8 @@ function LocationAutocomplete({ label, placeholder, value, onSelect }) {
             {suggestions.length > 0 && (
                 <div className="absolute z-[9999] mt-2 w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
                     {suggestions.map((place) => {
-                        const { Icon, colorClass, bgClass, borderClass } = getPlaceIcon(place);
+                        const { Icon, colorClass, bgClass, borderClass } =
+                            getPlaceIcon(place);
                         const badge = getPlaceBadge(place);
 
                         return (
@@ -226,7 +253,11 @@ function LocationAutocomplete({ label, placeholder, value, onSelect }) {
                                 <div
                                     className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border ${bgClass} ${borderClass}`}
                                 >
-                                    <Icon size={23} strokeWidth={2.4} className={colorClass} />
+                                    <Icon
+                                        size={23}
+                                        strokeWidth={2.4}
+                                        className={colorClass}
+                                    />
                                 </div>
 
                                 <div className="min-w-0 flex-1">

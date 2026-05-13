@@ -141,9 +141,10 @@ function App() {
             <div>
               <LocationAutocomplete
                 label="From"
-                placeholder="Search starting point, e.g. Helsinki"
+                placeholder="Search starting point"
                 value={fromPlace}
                 onSelect={setFromPlace}
+                markerColor="green"
               />
 
               <button
@@ -158,9 +159,10 @@ function App() {
 
             <LocationAutocomplete
               label="To"
-              placeholder="Search destination, e.g. Leppävaara"
+              placeholder="Search destination"
               value={toPlace}
               onSelect={setToPlace}
+              markerColor="red"
             />
           </div>
 
