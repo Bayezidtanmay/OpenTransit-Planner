@@ -6,6 +6,7 @@ import {
     Popup,
     useMap,
     Marker,
+    Tooltip,
 } from "react-leaflet";
 import L from "leaflet";
 import polyline from "@mapbox/polyline";
@@ -14,58 +15,37 @@ import "leaflet/dist/leaflet.css";
 import LiveVehiclesLayer from "./LiveVehiclesLayer";
 import UserLocationMarker from "./UserLocationMarker";
 
+const ORANGE_BUS_ROUTES = [
+    "20", "30", "40", "200", "400", "500", "510", "520", "530",
+    "540", "550", "560", "570", "600",
+];
+
 const isTransitLeg = (leg) => leg.mode !== "WALK" && leg.mode !== "BICYCLE";
+
+const isOrangeBus = (routeName = "") =>
+    ORANGE_BUS_ROUTES.some((route) => routeName.startsWith(route));
 
 const normalizeColor = (color) => {
     if (!color) return null;
-
     const cleanColor = color.toString().replace("#", "").trim();
-
     if (cleanColor.length !== 6) return null;
-
     return `#${cleanColor}`;
 };
 
 const getRouteColor = (leg) => {
-    const mode = leg.mode;
-    const route = leg.route?.shortName?.toUpperCase() || "";
     const apiRouteColor = normalizeColor(leg.route?.color);
+    const routeName = leg.route?.shortName || "";
 
-    if (mode !== "WALK" && mode !== "BICYCLE" && apiRouteColor) {
+    if (leg.mode !== "WALK" && leg.mode !== "BICYCLE" && apiRouteColor) {
         return apiRouteColor;
     }
 
-    if (mode === "SUBWAY") return "#ff6319";
-    if (mode === "TRAM") return "#00985f";
-    if (mode === "RAIL") return "#8c4799";
-    if (mode === "FERRY") return "#00b9e4";
-    if (mode === "BICYCLE") return "#059669";
-    if (mode === "WALK") return "#64748b";
-
-    const orangeBusRoutes = [
-        "20",
-        "30",
-        "40",
-        "50",
-        "200",
-        "300",
-        "400",
-        "500",
-        "510",
-        "520",
-        "530",
-        "540",
-        "550",
-        "560",
-        "570",
-        "600",
-    ];
-
-    if (mode === "BUS" && orangeBusRoutes.includes(route)) {
-        return "#ff5a1f";
-    }
-
-    if (mode === "BUS") return "#007ac9";
+    if (leg.mode === "BUS") return isOrangeBus(routeName) ? "#f97316" : "#007ac9";
+    if (leg.mode === "TRAM") return "#00985f";
+    if (leg.mode === "RAIL") return "#8c4799";
+    if (leg.mode === "SUBWAY") return "#ff6319";
+    if (leg.mode === "FERRY") return "#00b9e4";
+    if (leg.mode === "WALK") return "#64748b";
 
     return "#334155";
 };
@@ -73,109 +53,56 @@ const getRouteColor = (leg) => {
 const getTransitColorForMarker = (legs, index) => {
     const currentLeg = legs[index];
 
-    if (currentLeg && isTransitLeg(currentLeg)) {
-        return getRouteColor(currentLeg);
-    }
+    if (currentLeg && isTransitLeg(currentLeg)) return getRouteColor(currentLeg);
 
     const nextTransitLeg = legs.slice(index + 1).find(isTransitLeg);
+    if (nextTransitLeg) return getRouteColor(nextTransitLeg);
 
-    if (nextTransitLeg) {
-        return getRouteColor(nextTransitLeg);
-    }
-
-    const previousTransitLeg = [...legs]
-        .slice(0, index)
-        .reverse()
-        .find(isTransitLeg);
-
-    if (previousTransitLeg) {
-        return getRouteColor(previousTransitLeg);
-    }
+    const previousTransitLeg = [...legs].slice(0, index).reverse().find(isTransitLeg);
+    if (previousTransitLeg) return getRouteColor(previousTransitLeg);
 
     return "#007ac9";
 };
 
-const getMinutesBetween = (startTime, endTime) => {
-    const start = new Date(startTime).getTime();
-    const end = new Date(endTime).getTime();
-
-    if (Number.isNaN(start) || Number.isNaN(end)) return null;
-
-    return Math.max(0, Math.round((end - start) / 60000));
-};
-
-const isSameStopTransfer = (walkLeg) => {
-    if (!walkLeg) return false;
-
-    const distance = Number(walkLeg.distance || 0);
-
-    return distance <= 35;
-};
-
-const isSamePlace = (firstPlace, secondPlace) => {
-    if (!firstPlace || !secondPlace) return false;
-
-    const firstName = firstPlace.name?.trim().toLowerCase();
-    const secondName = secondPlace.name?.trim().toLowerCase();
-
-    const sameName = firstName && secondName && firstName === secondName;
-
-    const latDiff = Math.abs(Number(firstPlace.lat) - Number(secondPlace.lat));
-    const lonDiff = Math.abs(Number(firstPlace.lon) - Number(secondPlace.lon));
-
-    const veryClose = latDiff < 0.00025 && lonDiff < 0.00025;
-
-    return sameName || veryClose;
-};
-
-const createStopIcon = (color, size = 18, badge = null) => {
-    const badgeHtml = badge
-        ? `
-      <div style="
-        position:absolute;
-        left:50%;
-        top:-34px;
-        transform:translateX(-50%);
-        white-space:nowrap;
-        background:${badge.type === "walk" ? "#111827" : "#ffffff"};
-        color:${badge.type === "walk" ? "#ffffff" : "#111827"};
-        border:2px solid ${color};
-        border-radius:9999px;
-        padding:4px 9px;
-        font-size:12px;
-        font-weight:800;
-        box-shadow:0 3px 8px rgba(15,23,42,0.28);
-      ">
-        ${badge.label}
-      </div>
-    `
-        : "";
-
-    return L.divIcon({
+const createStopIcon = (color, size = 16, isTransfer = false) =>
+    L.divIcon({
         html: `
       <div style="
-        position:relative;
         width:${size}px;
         height:${size}px;
-      ">
-        ${badgeHtml}
-        <div style="
-          width:${size}px;
-          height:${size}px;
-          border-radius:9999px;
-          background:#ffffff;
-          border:${badge ? 6 : 5}px solid ${color};
-          box-shadow:0 2px 6px rgba(15,23,42,0.35);
-          box-sizing:border-box;
-        "></div>
-      </div>
+        border-radius:9999px;
+        background:#ffffff;
+        border:${isTransfer ? 5 : 4}px solid ${color};
+        box-shadow:0 2px 8px rgba(15,23,42,0.35);
+        box-sizing:border-box;
+      "></div>
     `,
         className: "custom-hsl-stop-marker",
         iconSize: [size, size],
         iconAnchor: [size / 2, size / 2],
-        popupAnchor: [0, -size / 2],
     });
-};
+
+const getTransferBadgeIcon = (text) =>
+    L.divIcon({
+        html: `
+      <div style="
+        background:white;
+        color:#0f172a;
+        border:3px solid #007ac9;
+        border-radius:9999px;
+        padding:6px 14px;
+        font-size:14px;
+        font-weight:800;
+        box-shadow:0 2px 8px rgba(15,23,42,0.25);
+        white-space:nowrap;
+      ">
+        ${text}
+      </div>
+    `,
+        className: "transfer-badge-marker",
+        iconSize: [120, 38],
+        iconAnchor: [60, 44],
+    });
 
 const getRouteLabelIcon = (leg) => {
     const color = getRouteColor(leg);
@@ -183,38 +110,31 @@ const getRouteLabelIcon = (leg) => {
 
     return L.divIcon({
         html: `
-        <div style="
-          display:flex;
-          align-items:center;
-          justify-content:center;
-          background:${color};
-          color:white;
-          border:3px solid white;
-          border-radius:8px;
-          padding:5px 12px;
-          font-size:15px;
-          font-weight:900;
-          line-height:1;
-          box-shadow:0 3px 10px rgba(15,23,42,0.35);
-          white-space:nowrap;
-          min-width:44px;
-        ">
-          ${routeName}
-        </div>
-      `,
+      <div style="
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        background:${color};
+        color:white;
+        border:3px solid white;
+        border-radius:8px;
+        padding:5px 12px;
+        font-size:15px;
+        font-weight:900;
+        line-height:1;
+        box-shadow:0 3px 10px rgba(15,23,42,0.35);
+        white-space:nowrap;
+        min-width:44px;
+        cursor:pointer;
+      ">
+        ${routeName}
+      </div>
+    `,
         className: "route-number-marker",
         iconSize: [60, 34],
         iconAnchor: [30, 17],
         popupAnchor: [0, -18],
     });
-};
-
-const getMiddlePoint = (positions) => {
-    if (!positions || positions.length === 0) return null;
-
-    const middleIndex = Math.floor(positions.length / 2);
-
-    return positions[middleIndex];
 };
 
 function FitRouteBounds({ routeLines }) {
@@ -236,6 +156,7 @@ function FitRouteBounds({ routeLines }) {
 function JourneyMap({ selectedRoute }) {
     const [showLiveVehicles, setShowLiveVehicles] = useState(false);
     const [showUserLocation, setShowUserLocation] = useState(false);
+    const [selectedServiceLeg, setSelectedServiceLeg] = useState(null);
 
     if (!selectedRoute) {
         return (
@@ -251,98 +172,34 @@ function JourneyMap({ selectedRoute }) {
         .filter((leg) => leg.legGeometry?.points)
         .map((leg) => ({
             mode: leg.mode,
-            color: getRouteColor(leg),
             routeName: leg.route?.shortName,
-            leg,
             positions: polyline.decode(leg.legGeometry.points),
+            color: getRouteColor(leg),
+            leg,
         }));
 
-    const routeLabels = routeLines
-        .filter((line) => isTransitLeg(line.leg) && line.routeName)
-        .map((line, index) => ({
-            key: `route-label-${index}-${line.routeName}`,
-            position: getMiddlePoint(line.positions),
-            leg: line.leg,
-        }))
-        .filter((label) => label.position);
-
-    const transferMarkers = new Map();
-
-    legs.forEach((leg, index) => {
-        if (leg.mode !== "WALK") return;
-
-        const previousLeg = legs[index - 1];
-        const nextLeg = legs[index + 1];
-
-        if (!previousLeg || !nextLeg) return;
-        if (!isTransitLeg(previousLeg) || !isTransitLeg(nextLeg)) return;
-
-        const transferColor = getRouteColor(nextLeg);
-        const transferKey = `${leg.from.name}-${leg.from.lat}-${leg.from.lon}`;
-
-        if (isSameStopTransfer(leg)) {
-            const waitMinutes = getMinutesBetween(
-                previousLeg.end.scheduledTime,
-                nextLeg.start.scheduledTime
-            );
-
-            transferMarkers.set(transferKey, {
-                name: leg.from.name,
-                position: [leg.from.lat, leg.from.lon],
-                color: transferColor,
-                size: 28,
-                badge: {
-                    type: "wait",
-                    label: `Wait: ${waitMinutes ?? 0} min`,
-                },
-            });
-
-            return;
-        }
-
-        transferMarkers.set(transferKey, {
-            name: `${leg.from.name} → ${leg.to.name}`,
-            position: [leg.from.lat, leg.from.lon],
-            color: transferColor,
-            size: 26,
-            badge: {
-                type: "walk",
-                label: `Walk: ${Math.round(Number(leg.distance || 0))} m`,
+    const selectedServiceRouteLine = selectedServiceLeg?.trip?.pattern?.patternGeometry?.points
+        ? [
+            {
+                mode: selectedServiceLeg.mode,
+                routeName: selectedServiceLeg.route?.shortName,
+                positions: polyline.decode(
+                    selectedServiceLeg.trip.pattern.patternGeometry.points
+                ),
+                color: getRouteColor(selectedServiceLeg),
+                leg: selectedServiceLeg,
             },
-        });
-    });
+        ]
+        : [];
 
-    legs.forEach((leg, index) => {
-        const nextLeg = legs[index + 1];
-
-        if (!nextLeg) return;
-        if (!isTransitLeg(leg) || !isTransitLeg(nextLeg)) return;
-        if (!isSamePlace(leg.to, nextLeg.from)) return;
-
-        const waitMinutes = getMinutesBetween(
-            leg.end.scheduledTime,
-            nextLeg.start.scheduledTime
-        );
-
-        const transferColor = getRouteColor(nextLeg);
-        const transferKey = `${nextLeg.from.name}-${nextLeg.from.lat}-${nextLeg.from.lon}`;
-
-        transferMarkers.set(transferKey, {
-            name: nextLeg.from.name,
-            position: [nextLeg.from.lat, nextLeg.from.lon],
-            color: transferColor,
-            size: 28,
-            badge: {
-                type: "wait",
-                label: `Wait: ${waitMinutes ?? 0} min`,
-            },
-        });
-    });
+    const mapLines =
+        selectedServiceRouteLine.length > 0 ? selectedServiceRouteLine : routeLines;
 
     const stopMarkers = [];
+    const transferBadges = [];
     const uniqueStops = new Set();
 
-    const addStop = (name, lat, lon, color, size = 18) => {
+    const addStop = (name, lat, lon, color, size = 16, isTransfer = false) => {
         if (!name || !lat || !lon) return;
 
         const key = `${name}-${lat}-${lon}`;
@@ -351,15 +208,13 @@ function JourneyMap({ selectedRoute }) {
 
         uniqueStops.add(key);
 
-        const transferMarker = transferMarkers.get(key);
-
         stopMarkers.push({
             key,
             name,
             position: [lat, lon],
-            color: transferMarker?.color || color,
-            size: transferMarker?.size || size,
-            badge: transferMarker?.badge || null,
+            color,
+            size,
+            isTransfer,
         });
     };
 
@@ -382,44 +237,97 @@ function JourneyMap({ selectedRoute }) {
         addStop(leg.to.name, leg.to.lat, leg.to.lon, markerColor);
     });
 
-    const start = [legs[0].from.lat, legs[0].from.lon];
-    const lastLeg = legs[legs.length - 1];
-    const end = [lastLeg.to.lat, lastLeg.to.lon];
+    for (let i = 0; i < legs.length - 1; i++) {
+        const currentLeg = legs[i];
+        const nextLeg = legs[i + 1];
 
-    const startColor = getTransitColorForMarker(legs, 0);
-    const endColor = getTransitColorForMarker(legs, legs.length - 1);
+        if (!isTransitLeg(currentLeg) || !isTransitLeg(nextLeg)) continue;
+
+        const sameStop = currentLeg.to.name === nextLeg.from.name;
+
+        if (sameStop) {
+            const waitMinutes = Math.round(
+                (new Date(nextLeg.start.scheduledTime).getTime() -
+                    new Date(currentLeg.end.scheduledTime).getTime()) /
+                60000
+            );
+
+            addStop(
+                currentLeg.to.name,
+                currentLeg.to.lat,
+                currentLeg.to.lon,
+                getRouteColor(nextLeg),
+                22,
+                true
+            );
+
+            transferBadges.push({
+                key: `wait-${i}`,
+                position: [currentLeg.to.lat, currentLeg.to.lon],
+                text: `Wait: ${waitMinutes} min`,
+            });
+        }
+    }
+
+    const routeLabels = routeLines
+        .filter((line) => isTransitLeg(line.leg))
+        .map((line, index) => {
+            const middleIndex = Math.floor(line.positions.length / 2);
+
+            return {
+                key: `route-label-${index}`,
+                position: line.positions[middleIndex],
+                leg: line.leg,
+            };
+        });
+
+    const start = [legs[0].from.lat, legs[0].from.lon];
+    const isServiceRouteMode = selectedServiceRouteLine.length > 0;
 
     return (
         <div className="bg-white rounded-2xl shadow overflow-hidden">
             <div className="p-4 border-b">
-                <h2 className="text-xl font-bold text-slate-900">
-                    Selected Route Map
-                </h2>
+                <h2 className="text-xl font-bold text-slate-900">Selected Route Map</h2>
 
                 <p className="text-sm text-slate-500">
-                    The map updates when you choose a different route option.
+                    {isServiceRouteMode
+                        ? `Showing full service route ${selectedServiceLeg.route?.shortName}.`
+                        : "The map updates when you choose a different route option."}
                 </p>
 
-                <div className="flex flex-wrap gap-2">
-                    <button
-                        onClick={() => setShowLiveVehicles((value) => !value)}
-                        className={`mt-3 rounded-full px-4 py-2 text-sm font-semibold transition ${showLiveVehicles
-                            ? "bg-green-100 text-green-700"
-                            : "bg-slate-100 text-slate-700"
-                            }`}
-                    >
-                        {showLiveVehicles ? "Hide live vehicles" : "Show live vehicles"}
-                    </button>
+                <div className="mt-3 flex flex-wrap gap-3">
+                    {isServiceRouteMode && (
+                        <button
+                            onClick={() => setSelectedServiceLeg(null)}
+                            className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+                        >
+                            Back to journey route
+                        </button>
+                    )}
 
-                    <button
-                        onClick={() => setShowUserLocation((value) => !value)}
-                        className={`mt-3 rounded-full px-4 py-2 text-sm font-semibold transition ${showUserLocation
-                            ? "bg-sky-100 text-sky-700"
-                            : "bg-slate-100 text-slate-700"
-                            }`}
-                    >
-                        {showUserLocation ? "Hide my location" : "Show my location"}
-                    </button>
+                    {!isServiceRouteMode && (
+                        <>
+                            <button
+                                onClick={() => setShowLiveVehicles((value) => !value)}
+                                className={`rounded-full px-4 py-2 text-sm font-semibold transition ${showLiveVehicles
+                                    ? "bg-green-100 text-green-700"
+                                    : "bg-slate-100 text-slate-700"
+                                    }`}
+                            >
+                                {showLiveVehicles ? "Hide live vehicles" : "Show live vehicles"}
+                            </button>
+
+                            <button
+                                onClick={() => setShowUserLocation((value) => !value)}
+                                className={`rounded-full px-4 py-2 text-sm font-semibold transition ${showUserLocation
+                                    ? "bg-blue-100 text-blue-700"
+                                    : "bg-slate-100 text-slate-700"
+                                    }`}
+                            >
+                                {showUserLocation ? "Hide my location" : "Show my location"}
+                            </button>
+                        </>
+                    )}
                 </div>
             </div>
 
@@ -436,68 +344,79 @@ function JourneyMap({ selectedRoute }) {
                     zoomOffset={-1}
                 />
 
-                <FitRouteBounds routeLines={routeLines} />
+                <FitRouteBounds routeLines={mapLines} />
 
-                {routeLines.map((line, index) => (
+                {mapLines.map((line, index) => (
                     <Polyline
-                        key={index}
+                        key={`${line.routeName}-${index}`}
                         positions={line.positions}
                         pathOptions={{
                             color: line.color,
-                            weight: line.mode === "WALK" ? 4 : 7,
+                            weight: isServiceRouteMode ? 8 : line.mode === "WALK" ? 4 : 7,
                             opacity: line.mode === "WALK" ? 0.65 : 0.95,
                             dashArray: line.mode === "WALK" ? "8 8" : null,
+                            lineCap: "round",
+                            lineJoin: "round",
                         }}
                     />
                 ))}
 
-                {routeLabels.map((label) => (
-                    <Marker
-                        key={label.key}
-                        position={label.position}
-                        icon={getRouteLabelIcon(label.leg)}
-                        zIndexOffset={4500}
-                    >
-                        <Popup>
-                            {label.leg.route?.shortName} — {label.leg.route?.longName}
-                        </Popup>
-                    </Marker>
-                ))}
+                {!isServiceRouteMode &&
+                    routeLabels.map((label) => (
+                        <Marker
+                            key={label.key}
+                            position={label.position}
+                            icon={getRouteLabelIcon(label.leg)}
+                            zIndexOffset={2500}
+                            eventHandlers={{
+                                click: () => setSelectedServiceLeg(label.leg),
+                            }}
+                        >
+                            <Popup>
+                                Click badge to show full service route{" "}
+                                {label.leg.route?.shortName}
+                            </Popup>
+                        </Marker>
+                    ))}
 
-                {stopMarkers.map((marker) => (
-                    <Marker
-                        key={marker.key}
-                        position={marker.position}
-                        icon={createStopIcon(marker.color, marker.size, marker.badge)}
-                        zIndexOffset={marker.badge ? 4000 : 2000}
-                    >
-                        <Popup>{marker.name}</Popup>
-                    </Marker>
-                ))}
+                {!isServiceRouteMode &&
+                    stopMarkers.map((marker) => (
+                        <Marker
+                            key={marker.key}
+                            position={marker.position}
+                            icon={createStopIcon(marker.color, marker.size, marker.isTransfer)}
+                            zIndexOffset={marker.isTransfer ? 2600 : 2000}
+                        >
+                            <Tooltip direction="top" offset={[0, -10]} opacity={1}>
+                                {marker.name}
+                            </Tooltip>
 
-                <Marker
-                    position={start}
-                    icon={createStopIcon(startColor, 20)}
-                    zIndexOffset={3000}
-                >
-                    <Popup>Start: {legs[0].from.name}</Popup>
-                </Marker>
+                            <Popup>{marker.name}</Popup>
+                        </Marker>
+                    ))}
 
-                <Marker
-                    position={end}
-                    icon={createStopIcon(endColor, 20)}
-                    zIndexOffset={3000}
-                >
-                    <Popup>Destination: {lastLeg.to.name}</Popup>
-                </Marker>
+                {!isServiceRouteMode &&
+                    transferBadges.map((badge) => (
+                        <Marker
+                            key={badge.key}
+                            position={badge.position}
+                            icon={getTransferBadgeIcon(badge.text)}
+                            interactive={false}
+                            zIndexOffset={3000}
+                        />
+                    ))}
 
-                <LiveVehiclesLayer
-                    enabled={showLiveVehicles}
-                    routeLines={routeLines}
-                    selectedLegs={legs.filter((leg) => leg.route)}
-                />
+                {!isServiceRouteMode && (
+                    <>
+                        <LiveVehiclesLayer
+                            enabled={showLiveVehicles}
+                            routeLines={routeLines}
+                            selectedLegs={legs.filter((leg) => leg.route)}
+                        />
 
-                <UserLocationMarker enabled={showUserLocation} />
+                        <UserLocationMarker enabled={showUserLocation} />
+                    </>
+                )}
             </MapContainer>
         </div>
     );
