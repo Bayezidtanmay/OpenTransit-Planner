@@ -177,6 +177,46 @@ const createStopIcon = (color, size = 18, badge = null) => {
     });
 };
 
+const getRouteLabelIcon = (leg) => {
+    const color = getRouteColor(leg);
+    const routeName = leg.route?.shortName || "";
+
+    return L.divIcon({
+        html: `
+        <div style="
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          background:${color};
+          color:white;
+          border:3px solid white;
+          border-radius:8px;
+          padding:5px 12px;
+          font-size:15px;
+          font-weight:900;
+          line-height:1;
+          box-shadow:0 3px 10px rgba(15,23,42,0.35);
+          white-space:nowrap;
+          min-width:44px;
+        ">
+          ${routeName}
+        </div>
+      `,
+        className: "route-number-marker",
+        iconSize: [60, 34],
+        iconAnchor: [30, 17],
+        popupAnchor: [0, -18],
+    });
+};
+
+const getMiddlePoint = (positions) => {
+    if (!positions || positions.length === 0) return null;
+
+    const middleIndex = Math.floor(positions.length / 2);
+
+    return positions[middleIndex];
+};
+
 function FitRouteBounds({ routeLines }) {
     const map = useMap();
 
@@ -212,8 +252,19 @@ function JourneyMap({ selectedRoute }) {
         .map((leg) => ({
             mode: leg.mode,
             color: getRouteColor(leg),
+            routeName: leg.route?.shortName,
+            leg,
             positions: polyline.decode(leg.legGeometry.points),
         }));
+
+    const routeLabels = routeLines
+        .filter((line) => isTransitLeg(line.leg) && line.routeName)
+        .map((line, index) => ({
+            key: `route-label-${index}-${line.routeName}`,
+            position: getMiddlePoint(line.positions),
+            leg: line.leg,
+        }))
+        .filter((label) => label.position);
 
     const transferMarkers = new Map();
 
@@ -353,8 +404,8 @@ function JourneyMap({ selectedRoute }) {
                     <button
                         onClick={() => setShowLiveVehicles((value) => !value)}
                         className={`mt-3 rounded-full px-4 py-2 text-sm font-semibold transition ${showLiveVehicles
-                                ? "bg-green-100 text-green-700"
-                                : "bg-slate-100 text-slate-700"
+                            ? "bg-green-100 text-green-700"
+                            : "bg-slate-100 text-slate-700"
                             }`}
                     >
                         {showLiveVehicles ? "Hide live vehicles" : "Show live vehicles"}
@@ -363,8 +414,8 @@ function JourneyMap({ selectedRoute }) {
                     <button
                         onClick={() => setShowUserLocation((value) => !value)}
                         className={`mt-3 rounded-full px-4 py-2 text-sm font-semibold transition ${showUserLocation
-                                ? "bg-sky-100 text-sky-700"
-                                : "bg-slate-100 text-slate-700"
+                            ? "bg-sky-100 text-sky-700"
+                            : "bg-slate-100 text-slate-700"
                             }`}
                     >
                         {showUserLocation ? "Hide my location" : "Show my location"}
@@ -398,6 +449,19 @@ function JourneyMap({ selectedRoute }) {
                             dashArray: line.mode === "WALK" ? "8 8" : null,
                         }}
                     />
+                ))}
+
+                {routeLabels.map((label) => (
+                    <Marker
+                        key={label.key}
+                        position={label.position}
+                        icon={getRouteLabelIcon(label.leg)}
+                        zIndexOffset={4500}
+                    >
+                        <Popup>
+                            {label.leg.route?.shortName} — {label.leg.route?.longName}
+                        </Popup>
+                    </Marker>
                 ))}
 
                 {stopMarkers.map((marker) => (
