@@ -7,6 +7,7 @@ import {
     useMap,
     Marker,
     Tooltip,
+    GeoJSON,
 } from "react-leaflet";
 import L from "leaflet";
 import polyline from "@mapbox/polyline";
@@ -14,10 +15,11 @@ import "leaflet/dist/leaflet.css";
 
 import LiveVehiclesLayer from "./LiveVehiclesLayer";
 import UserLocationMarker from "./UserLocationMarker";
+import hslZones from "../data/hslZones.json";
 
 const ORANGE_BUS_ROUTES = [
     "20", "30", "40", "200", "400", "500", "510", "520", "530",
-    "540", "550", "560", "570", "600",
+    "560", "570", "600",
 ];
 
 const isTransitLeg = (leg) => leg.mode !== "WALK" && leg.mode !== "BICYCLE";
@@ -31,6 +33,99 @@ const normalizeColor = (color) => {
     if (cleanColor.length !== 6) return null;
     return `#${cleanColor}`;
 };
+
+const getZoneName = (feature) => {
+    return (
+        feature.properties?.zone ||
+        feature.properties?.Zone ||
+        feature.properties?.ZONE ||
+        feature.properties?.vyohyke ||
+        feature.properties?.Vyohyke ||
+        feature.properties?.VYOHYKE ||
+        feature.properties?.name ||
+        feature.properties?.Name ||
+        ""
+    )
+        .toString()
+        .replace("Vyöhyke ", "")
+        .replace("Zone ", "")
+        .trim()
+        .toUpperCase();
+};
+
+const getZoneStyle = (feature) => {
+    const zone = getZoneName(feature);
+
+    return {
+        color: "#1f2937",
+        weight: 3,
+        opacity: 0.75,
+        fillOpacity: 0.04,
+        fillColor:
+            zone === "A"
+                ? "#60a5fa"
+                : zone === "B"
+                    ? "#34d399"
+                    : zone === "C"
+                        ? "#fbbf24"
+                        : "#f87171",
+    };
+};
+
+const getPolygonCenter = (geometry) => {
+    if (!geometry?.coordinates) return null;
+
+    let points = [];
+
+    if (geometry.type === "Polygon") {
+        points = geometry.coordinates[0];
+    }
+
+    if (geometry.type === "MultiPolygon") {
+        const biggestPolygon = geometry.coordinates.reduce((biggest, polygon) => {
+            return polygon[0].length > biggest[0].length ? polygon : biggest;
+        }, geometry.coordinates[0]);
+
+        points = biggestPolygon[0];
+    }
+
+    if (!points.length) return null;
+
+    const total = points.reduce(
+        (sum, point) => ({
+            lon: sum.lon + Number(point[0]),
+            lat: sum.lat + Number(point[1]),
+        }),
+        { lon: 0, lat: 0 }
+    );
+
+    return [total.lat / points.length, total.lon / points.length];
+};
+
+const getZoneLabelIcon = (zone) =>
+    L.divIcon({
+        html: `
+      <div style="
+        width:48px;
+        height:48px;
+        border-radius:9999px;
+        background:rgba(15,23,42,0.86);
+        color:white;
+        border:3px solid rgba(255,255,255,0.9);
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        font-size:24px;
+        font-weight:900;
+        box-shadow:0 4px 12px rgba(15,23,42,0.35);
+      ">
+        ${zone}
+      </div>
+    `,
+        className: "hsl-zone-label",
+        iconSize: [48, 48],
+        iconAnchor: [24, 24],
+    });
 
 const getRouteColor = (leg) => {
     const apiRouteColor = normalizeColor(leg.route?.color);
@@ -58,7 +153,11 @@ const getTransitColorForMarker = (legs, index) => {
     const nextTransitLeg = legs.slice(index + 1).find(isTransitLeg);
     if (nextTransitLeg) return getRouteColor(nextTransitLeg);
 
-    const previousTransitLeg = [...legs].slice(0, index).reverse().find(isTransitLeg);
+    const previousTransitLeg = [...legs]
+        .slice(0, index)
+        .reverse()
+        .find(isTransitLeg);
+
     if (previousTransitLeg) return getRouteColor(previousTransitLeg);
 
     return "#007ac9";
@@ -168,6 +267,13 @@ function JourneyMap({ selectedRoute }) {
 
     const legs = selectedRoute.node.legs;
 
+    const zoneLabels = hslZones.features
+        .map((feature) => ({
+            zone: getZoneName(feature),
+            position: getPolygonCenter(feature.geometry),
+        }))
+        .filter((label) => label.zone && label.position);
+
     const routeLines = legs
         .filter((leg) => leg.legGeometry?.points)
         .map((leg) => ({
@@ -178,7 +284,8 @@ function JourneyMap({ selectedRoute }) {
             leg,
         }));
 
-    const selectedServiceRouteLine = selectedServiceLeg?.trip?.pattern?.patternGeometry?.points
+    const selectedServiceRouteLine = selectedServiceLeg?.trip?.pattern
+        ?.patternGeometry?.points
         ? [
             {
                 mode: selectedServiceLeg.mode,
@@ -194,6 +301,8 @@ function JourneyMap({ selectedRoute }) {
 
     const mapLines =
         selectedServiceRouteLine.length > 0 ? selectedServiceRouteLine : routeLines;
+
+    const isServiceRouteMode = selectedServiceRouteLine.length > 0;
 
     const stopMarkers = [];
     const transferBadges = [];
@@ -282,12 +391,13 @@ function JourneyMap({ selectedRoute }) {
         });
 
     const start = [legs[0].from.lat, legs[0].from.lon];
-    const isServiceRouteMode = selectedServiceRouteLine.length > 0;
 
     return (
         <div className="bg-white rounded-2xl shadow overflow-hidden">
             <div className="p-4 border-b">
-                <h2 className="text-xl font-bold text-slate-900">Selected Route Map</h2>
+                <h2 className="text-xl font-bold text-slate-900">
+                    Selected Route Map
+                </h2>
 
                 <p className="text-sm text-slate-500">
                     {isServiceRouteMode
@@ -344,6 +454,18 @@ function JourneyMap({ selectedRoute }) {
                     zoomOffset={-1}
                 />
 
+                <GeoJSON data={hslZones} style={getZoneStyle} interactive={false} />
+
+                {zoneLabels.map((label) => (
+                    <Marker
+                        key={`zone-${label.zone}`}
+                        position={label.position}
+                        icon={getZoneLabelIcon(label.zone)}
+                        interactive={false}
+                        zIndexOffset={500}
+                    />
+                ))}
+
                 <FitRouteBounds routeLines={mapLines} />
 
                 {mapLines.map((line, index) => (
@@ -384,7 +506,11 @@ function JourneyMap({ selectedRoute }) {
                         <Marker
                             key={marker.key}
                             position={marker.position}
-                            icon={createStopIcon(marker.color, marker.size, marker.isTransfer)}
+                            icon={createStopIcon(
+                                marker.color,
+                                marker.size,
+                                marker.isTransfer
+                            )}
                             zIndexOffset={marker.isTransfer ? 2600 : 2000}
                         >
                             <Tooltip direction="top" offset={[0, -10]} opacity={1}>
