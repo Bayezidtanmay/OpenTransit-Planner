@@ -22,7 +22,11 @@ const ORANGE_BUS_ROUTES = [
     "560", "570", "600",
 ];
 
-const isTransitLeg = (leg) => leg.mode !== "WALK" && leg.mode !== "BICYCLE";
+const isTransitLeg = (leg) => {
+    if (!leg) return false;
+
+    return leg.mode !== "WALK" && leg.mode !== "BICYCLE";
+};
 
 const isOrangeBus = (routeName = "") =>
     ORANGE_BUS_ROUTES.some((route) => routeName.startsWith(route));
@@ -313,7 +317,17 @@ function JourneyMap({ selectedRoute }) {
 
         const key = `${name}-${lat}-${lon}`;
 
-        if (uniqueStops.has(key)) return;
+        if (uniqueStops.has(key)) {
+            const existingStop = stopMarkers.find((marker) => marker.key === key);
+
+            if (existingStop && isTransfer) {
+                existingStop.size = size;
+                existingStop.isTransfer = true;
+                existingStop.color = color;
+            }
+
+            return;
+        }
 
         uniqueStops.add(key);
 
@@ -349,6 +363,27 @@ function JourneyMap({ selectedRoute }) {
     for (let i = 0; i < legs.length - 1; i++) {
         const currentLeg = legs[i];
         const nextLeg = legs[i + 1];
+
+        if (currentLeg.mode === "WALK" && isTransitLeg(legs[i - 1]) && isTransitLeg(nextLeg)) {
+            const walkDistance = Math.round(Number(currentLeg.distance || 0));
+
+            addStop(
+                currentLeg.from.name,
+                currentLeg.from.lat,
+                currentLeg.from.lon,
+                getRouteColor(nextLeg),
+                22,
+                true
+            );
+
+            transferBadges.push({
+                key: `walk-${i}`,
+                position: [currentLeg.from.lat, currentLeg.from.lon],
+                text: `Walk: ${walkDistance} m`,
+            });
+
+            continue;
+        }
 
         if (!isTransitLeg(currentLeg) || !isTransitLeg(nextLeg)) continue;
 
