@@ -184,6 +184,7 @@ function App() {
                 index={index}
                 selected={selectedRouteIndex === index}
                 onSelect={() => setSelectedRouteIndex(index)}
+                onClose={() => setSelectedRouteIndex(null)}
               />
             ))}
 
@@ -205,7 +206,7 @@ function App() {
           </div>
 
           <div className="lg:sticky lg:top-6 self-start">
-            <JourneyMap selectedRoute={routes[selectedRouteIndex]} />
+            <JourneyMap selectedRoute={routes[selectedRouteIndex] || null} />
           </div>
         </div>
       </div>
