@@ -38,6 +38,27 @@ const normalizeColor = (color) => {
     return `#${cleanColor}`;
 };
 
+const formatStopTime = (seconds) => {
+    if (seconds === null || seconds === undefined) return "—";
+
+    if (typeof seconds === "string" && seconds.includes("T")) {
+        return new Date(seconds).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+        });
+    }
+
+    const totalSeconds = Number(seconds);
+    if (Number.isNaN(totalSeconds)) return "—";
+
+    const hours = Math.floor(totalSeconds / 3600) % 24;
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+
+    return `${hours.toString().padStart(2, "0")}:${minutes
+        .toString()
+        .padStart(2, "0")}`;
+};
+
 const getZoneName = (feature) => {
     return (
         feature.properties?.zone ||
@@ -167,23 +188,51 @@ const getTransitColorForMarker = (legs, index) => {
     return "#007ac9";
 };
 
-const createStopIcon = (color, size = 16, isTransfer = false) =>
-    L.divIcon({
-        html: `
-      <div style="
-        width:${size}px;
-        height:${size}px;
-        border-radius:9999px;
-        background:#ffffff;
-        border:${isTransfer ? 5 : 4}px solid ${color};
-        box-shadow:0 2px 8px rgba(15,23,42,0.35);
-        box-sizing:border-box;
-      "></div>
-    `,
+const createStopIcon = (color, size = 16, isTransfer = false, mode = "") => {
+    const isBus = mode === "BUS";
+
+    return L.divIcon({
+        html: isBus
+            ? `
+        <div style="
+          width:${size + 12}px;
+          height:${size + 12}px;
+          border-radius:9999px;
+          background:white;
+          border:4px solid ${color};
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          box-shadow:0 4px 12px rgba(15,23,42,0.28);
+          box-sizing:border-box;
+        ">
+          <div style="
+            width:${size - 2}px;
+            height:${size - 2}px;
+            border-radius:9999px;
+            background:${color};
+            border:2px solid white;
+          "></div>
+        </div>
+      `
+            : `
+        <div style="
+          width:${size}px;
+          height:${size}px;
+          border-radius:9999px;
+          background:#ffffff;
+          border:${isTransfer ? 5 : 4}px solid ${color};
+          box-shadow:0 2px 8px rgba(15,23,42,0.35);
+          box-sizing:border-box;
+        "></div>
+      `,
         className: "custom-hsl-stop-marker",
-        iconSize: [size, size],
-        iconAnchor: [size / 2, size / 2],
+        iconSize: isBus ? [size + 12, size + 12] : [size, size],
+        iconAnchor: isBus
+            ? [(size + 12) / 2, (size + 12) / 2]
+            : [size / 2, size / 2],
     });
+};
 
 const getTransferBadgeIcon = (text) =>
     L.divIcon({
@@ -254,6 +303,80 @@ function FitRouteBounds({ routeLines }) {
     }, [routeLines, map]);
 
     return null;
+}
+
+function ServiceTimetable({ leg }) {
+    const stoptimes = leg?.trip?.stoptimes || [];
+    const color = getRouteColor(leg);
+    const routeName = leg?.route?.shortName || "Route";
+
+    if (!stoptimes.length) {
+        return (
+            <div className="border-t bg-slate-50 px-4 py-4 text-sm text-slate-500">
+                No timetable data available for this service.
+            </div>
+        );
+    }
+
+    return (
+        <div className="border-t bg-slate-50 px-4 py-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                    <h3 className="text-base font-bold text-slate-900">
+                        Timetable for {routeName}
+                    </h3>
+                    <p className="text-sm text-slate-500">
+                        Full stop timetable for this selected service.
+                    </p>
+                </div>
+
+                <div
+                    className="rounded-lg px-3 py-1 text-sm font-black text-white"
+                    style={{ backgroundColor: color }}
+                >
+                    {routeName}
+                </div>
+            </div>
+
+            <div className="max-h-64 overflow-y-auto rounded-2xl border border-slate-200 bg-white">
+                {stoptimes.map((item, index) => {
+                    const departure =
+                        item.realtimeDeparture ??
+                        item.scheduledDeparture ??
+                        item.realtimeArrival ??
+                        item.scheduledArrival;
+
+                    return (
+                        <div
+                            key={`${item.stop?.gtfsId || item.stop?.name}-${index}`}
+                            className="grid grid-cols-[70px_1fr_auto] items-center gap-3 border-b border-slate-100 px-4 py-3 last:border-b-0"
+                        >
+                            <div className="font-bold text-slate-900">
+                                {formatStopTime(departure)}
+                            </div>
+
+                            <div>
+                                <div className="font-semibold text-slate-800">
+                                    {item.stop?.name || "Unknown stop"}
+                                </div>
+
+                                {item.stop?.code && (
+                                    <div className="mt-0.5 text-xs font-semibold text-slate-400">
+                                        Stop {item.stop.code}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div
+                                className="h-3 w-3 rounded-full border-2 border-white shadow"
+                                style={{ backgroundColor: color }}
+                            />
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
 }
 
 function JourneyMap({ selectedRoute }) {
@@ -475,6 +598,8 @@ function JourneyMap({ selectedRoute }) {
                     )}
                 </div>
             </div>
+
+            {isServiceRouteMode && <ServiceTimetable leg={selectedServiceLeg} />}
 
             <MapContainer
                 center={start}
