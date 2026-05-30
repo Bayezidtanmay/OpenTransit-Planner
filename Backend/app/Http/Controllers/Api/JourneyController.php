@@ -53,11 +53,21 @@ class JourneyController extends Controller
                     name
                     lat
                     lon
+                    stop {
+                      gtfsId
+                      name
+                      code
+                    }
                   }
                   to {
                     name
                     lat
                     lon
+                    stop {
+                      gtfsId
+                      name
+                      code
+                    }
                   }
                   intermediatePlaces {
                     name
@@ -95,6 +105,7 @@ class JourneyController extends Controller
                       }
                     }
                     pattern {
+                      code
                       directionId
                       patternGeometry {
                         points
@@ -133,5 +144,68 @@ class JourneyController extends Controller
     }
 
     return response()->json($response->json());
+  }
+
+  public function stopSchedule(Request $request)
+  {
+    $validated = $request->validate([
+      'stopId' => 'required|string',
+      'routeShortName' => 'required|string',
+    ]);
+
+    $query = <<<'GRAPHQL'
+        query StopSchedule($stopId: String!) {
+          stop(id: $stopId) {
+            name
+            stoptimesWithoutPatterns(numberOfDepartures: 80) {
+              serviceDay
+              scheduledDeparture
+              realtimeDeparture
+              headsign
+              trip {
+                gtfsId
+                route {
+                  shortName
+                  longName
+                  mode
+                  color
+                }
+              }
+            }
+          }
+        }
+        GRAPHQL;
+
+    $response = Http::withHeaders([
+      'Content-Type' => 'application/json',
+      'digitransit-subscription-key' => env('DIGITRANSIT_API_KEY'),
+    ])->post(env('DIGITRANSIT_ROUTING_URL'), [
+      'query' => $query,
+      'variables' => [
+        'stopId' => $validated['stopId'],
+      ],
+    ]);
+
+    if ($response->failed()) {
+      return response()->json([
+        'message' => 'Failed to fetch stop schedule',
+        'error' => $response->json(),
+      ], $response->status());
+    }
+
+    $data = $response->json();
+
+    $filtered = collect(
+      $data['data']['stop']['stoptimesWithoutPatterns'] ?? []
+    )->filter(function ($item) use ($validated) {
+      return ($item['trip']['route']['shortName'] ?? null)
+        === $validated['routeShortName'];
+    })->values();
+
+    return response()->json([
+      'stop' => $data['data']['stop']['name'] ?? null,
+      'routeShortName' => $validated['routeShortName'],
+      'departures' => $filtered,
+    ]);
   }
 }
