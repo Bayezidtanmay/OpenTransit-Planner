@@ -16,6 +16,7 @@ import "leaflet/dist/leaflet.css";
 import LiveVehiclesLayer from "./LiveVehiclesLayer";
 import UserLocationMarker from "./UserLocationMarker";
 import hslZones from "../data/hslZones.json";
+import api from "../api";
 
 const ORANGE_BUS_ROUTES = [
     "20", "30", "40", "200", "400", "500", "510", "520", "530",
@@ -306,11 +307,46 @@ function FitRouteBounds({ routeLines }) {
 }
 
 function ServiceTimetable({ leg }) {
-    const stoptimes = leg?.trip?.stoptimes || [];
+    const currentTripStops = leg?.trip?.stoptimes || [];
     const color = getRouteColor(leg);
     const routeName = leg?.route?.shortName || "Route";
+    const stopId = leg?.from?.stop?.gtfsId;
 
-    if (!stoptimes.length) {
+    const [dailyDepartures, setDailyDepartures] = useState([]);
+    const [scheduleLoading, setScheduleLoading] = useState(false);
+    const [scheduleError, setScheduleError] = useState("");
+
+    useEffect(() => {
+        const fetchDailySchedule = async () => {
+            if (!stopId || !routeName) {
+                setDailyDepartures([]);
+                return;
+            }
+
+            try {
+                setScheduleLoading(true);
+                setScheduleError("");
+
+                const response = await api.get("/journeys/stop-schedule", {
+                    params: {
+                        stopId,
+                        routeShortName: routeName,
+                    },
+                });
+
+                setDailyDepartures(response.data.departures || []);
+            } catch (error) {
+                console.error("Stop schedule failed:", error);
+                setScheduleError("Could not load daily departures.");
+            } finally {
+                setScheduleLoading(false);
+            }
+        };
+
+        fetchDailySchedule();
+    }, [stopId, routeName]);
+
+    if (!currentTripStops.length) {
         return (
             <div className="border-t bg-slate-50 px-4 py-4 text-sm text-slate-500">
                 No timetable data available for this service.
@@ -318,8 +354,8 @@ function ServiceTimetable({ leg }) {
         );
     }
 
-    const firstStop = stoptimes[0];
-    const lastStop = stoptimes[stoptimes.length - 1];
+    const firstStop = currentTripStops[0];
+    const lastStop = currentTripStops[currentTripStops.length - 1];
 
     const serviceStartTime =
         firstStop.realtimeDeparture ??
@@ -341,7 +377,7 @@ function ServiceTimetable({ leg }) {
                         Timetable for {routeName}
                     </h3>
                     <p className="text-sm text-slate-500">
-                        Full stop timetable for this selected service.
+                        Daily departures from {leg?.from?.name || "selected stop"}.
                     </p>
                 </div>
 
@@ -357,7 +393,7 @@ function ServiceTimetable({ leg }) {
                 <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
                     <div>
                         <div className="text-xs font-bold uppercase text-slate-400">
-                            Service starts
+                            This trip starts
                         </div>
                         <div className="mt-1 text-lg font-black text-slate-900">
                             {formatStopTime(serviceStartTime)}
@@ -371,7 +407,7 @@ function ServiceTimetable({ leg }) {
 
                     <div className="text-right">
                         <div className="text-xs font-bold uppercase text-slate-400">
-                            Service ends
+                            This trip ends
                         </div>
                         <div className="mt-1 text-lg font-black text-slate-900">
                             {formatStopTime(serviceEndTime)}
@@ -383,8 +419,77 @@ function ServiceTimetable({ leg }) {
                 </div>
             </div>
 
+            <div className="mb-4 rounded-2xl border border-slate-200 bg-white">
+                <div className="border-b border-slate-100 px-4 py-3">
+                    <h4 className="font-bold text-slate-900">
+                        All departures today
+                    </h4>
+                    <p className="text-sm text-slate-500">
+                        From {leg?.from?.name || "this stop"}.
+                    </p>
+                </div>
+
+                <div className="max-h-64 overflow-y-auto">
+                    {scheduleLoading && (
+                        <div className="px-4 py-4 text-sm text-slate-500">
+                            Loading daily departures...
+                        </div>
+                    )}
+
+                    {scheduleError && (
+                        <div className="px-4 py-4 text-sm text-red-600">
+                            {scheduleError}
+                        </div>
+                    )}
+
+                    {!scheduleLoading &&
+                        !scheduleError &&
+                        dailyDepartures.length === 0 && (
+                            <div className="px-4 py-4 text-sm text-slate-500">
+                                No daily departures found for this route from this stop.
+                            </div>
+                        )}
+
+                    {!scheduleLoading &&
+                        dailyDepartures.map((departure, index) => {
+                            const departureTime =
+                                departure.realtimeDeparture ??
+                                departure.scheduledDeparture;
+
+                            return (
+                                <div
+                                    key={`${departure.trip?.gtfsId}-${index}`}
+                                    className="grid grid-cols-[70px_1fr_auto] items-center gap-3 border-b border-slate-100 px-4 py-3 last:border-b-0"
+                                >
+                                    <div className="font-black text-slate-900">
+                                        {formatStopTime(departureTime)}
+                                    </div>
+
+                                    <div>
+                                        <div className="font-semibold text-slate-800">
+                                            {departure.headsign || "Unknown destination"}
+                                        </div>
+
+                                        <div className="mt-0.5 text-xs font-semibold text-slate-400">
+                                            {departure.trip?.route?.longName ||
+                                                `Route ${routeName}`}
+                                        </div>
+                                    </div>
+
+                                    <div
+                                        className="rounded-md px-2 py-1 text-xs font-black text-white"
+                                        style={{ backgroundColor: color }}
+                                    >
+                                        {routeName}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                </div>
+            </div>
+
             <div className="max-h-64 overflow-y-auto rounded-2xl border border-slate-200 bg-white">
-                {stoptimes.map((item, index) => {
+                {currentTripStops.map((item, index) => {
                     const departure =
                         item.realtimeDeparture ??
                         item.scheduledDeparture ??
