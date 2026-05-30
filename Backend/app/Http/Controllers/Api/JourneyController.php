@@ -82,7 +82,17 @@ class JourneyController extends Controller
                   trip {
                     gtfsId
                     stoptimes {
+                      scheduledArrival
                       scheduledDeparture
+                      realtimeArrival
+                      realtimeDeparture
+                      stop {
+                        gtfsId
+                        name
+                        code
+                        lat
+                        lon
+                      }
                     }
                     pattern {
                       directionId
