@@ -318,6 +318,21 @@ function ServiceTimetable({ leg }) {
         );
     }
 
+    const firstStop = stoptimes[0];
+    const lastStop = stoptimes[stoptimes.length - 1];
+
+    const serviceStartTime =
+        firstStop.realtimeDeparture ??
+        firstStop.scheduledDeparture ??
+        firstStop.realtimeArrival ??
+        firstStop.scheduledArrival;
+
+    const serviceEndTime =
+        lastStop.realtimeArrival ??
+        lastStop.scheduledArrival ??
+        lastStop.realtimeDeparture ??
+        lastStop.scheduledDeparture;
+
     return (
         <div className="border-t bg-slate-50 px-4 py-4">
             <div className="mb-3 flex items-center justify-between gap-3">
@@ -335,6 +350,36 @@ function ServiceTimetable({ leg }) {
                     style={{ backgroundColor: color }}
                 >
                     {routeName}
+                </div>
+            </div>
+
+            <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+                    <div>
+                        <div className="text-xs font-bold uppercase text-slate-400">
+                            Service starts
+                        </div>
+                        <div className="mt-1 text-lg font-black text-slate-900">
+                            {formatStopTime(serviceStartTime)}
+                        </div>
+                        <div className="text-sm font-semibold text-slate-600">
+                            {firstStop.stop?.name || "Unknown stop"}
+                        </div>
+                    </div>
+
+                    <div className="text-xl font-black text-slate-300">→</div>
+
+                    <div className="text-right">
+                        <div className="text-xs font-bold uppercase text-slate-400">
+                            Service ends
+                        </div>
+                        <div className="mt-1 text-lg font-black text-slate-900">
+                            {formatStopTime(serviceEndTime)}
+                        </div>
+                        <div className="text-sm font-semibold text-slate-600">
+                            {lastStop.stop?.name || "Unknown stop"}
+                        </div>
+                    </div>
                 </div>
             </div>
 
