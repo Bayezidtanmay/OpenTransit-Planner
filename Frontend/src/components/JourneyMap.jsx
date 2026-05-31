@@ -389,7 +389,7 @@ function ServiceTimetable({ leg }) {
                 </div>
             </div>
 
-            <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="mb-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
                     <div>
                         <div className="text-xs font-bold uppercase text-slate-400">
@@ -429,7 +429,7 @@ function ServiceTimetable({ leg }) {
                     </p>
                 </div>
 
-                <div className="max-h-64 overflow-y-auto">
+                <div className="max-h-40 overflow-y-auto">
                     {scheduleLoading && (
                         <div className="px-4 py-4 text-sm text-slate-500">
                             Loading daily departures...
@@ -488,7 +488,7 @@ function ServiceTimetable({ leg }) {
                 </div>
             </div>
 
-            <div className="max-h-64 overflow-y-auto rounded-2xl border border-slate-200 bg-white">
+            <div className="max-h-40 overflow-y-auto rounded-xl border border-slate-200 bg-white">
                 {currentTripStops.map((item, index) => {
                     const departure =
                         item.realtimeDeparture ??
@@ -755,7 +755,11 @@ function JourneyMap({ selectedRoute }) {
                 center={start}
                 zoom={12}
                 scrollWheelZoom={true}
-                className="h-[620px] w-full"
+                className={
+                    isServiceRouteMode
+                        ? "h-[750px] w-full"
+                        : "h-[620px] w-full"
+                }
             >
                 <TileLayer
                     attribution="Map tiles &copy; HSL / Digitransit / OpenStreetMap contributors"
