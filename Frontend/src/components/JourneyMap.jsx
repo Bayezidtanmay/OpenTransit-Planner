@@ -83,10 +83,10 @@ const getZoneStyle = (feature) => {
     const zone = getZoneName(feature);
 
     return {
-        color: "#1f2937",
-        weight: 3,
-        opacity: 0.75,
-        fillOpacity: 0.04,
+        color: "#64748b",
+        weight: 2,
+        opacity: 0.55,
+        fillOpacity: 0.045,
         fillColor:
             zone === "A"
                 ? "#60a5fa"
@@ -135,22 +135,23 @@ const getZoneLabelIcon = (zone) =>
         width:48px;
         height:48px;
         border-radius:9999px;
-        background:rgba(15,23,42,0.86);
+        background:#007AC9;
         color:white;
-        border:3px solid rgba(255,255,255,0.9);
+        border:1px solid rgba(15,23,42,0.08);
         display:flex;
         align-items:center;
         justify-content:center;
         font-size:24px;
         font-weight:900;
-        box-shadow:0 4px 12px rgba(15,23,42,0.35);
+        backdrop-filter: blur(2px);
+        box-shadow:none;
       ">
         ${zone}
       </div>
     `,
         className: "hsl-zone-label",
-        iconSize: [48, 48],
-        iconAnchor: [24, 24],
+        iconSize: [58, 58],
+        iconAnchor: [29, 29],
     });
 
 const getRouteColor = (leg) => {
@@ -728,8 +729,8 @@ function JourneyMap({ selectedRoute }) {
                             <button
                                 onClick={() => setShowLiveVehicles((value) => !value)}
                                 className={`rounded-full px-4 py-2 text-sm font-semibold transition ${showLiveVehicles
-                                        ? "bg-green-100 text-green-700"
-                                        : "bg-slate-100 text-slate-700"
+                                    ? "bg-green-100 text-green-700"
+                                    : "bg-slate-100 text-slate-700"
                                     }`}
                             >
                                 {showLiveVehicles ? "Hide live vehicles" : "Show live vehicles"}
@@ -738,8 +739,8 @@ function JourneyMap({ selectedRoute }) {
                             <button
                                 onClick={() => setShowUserLocation((value) => !value)}
                                 className={`rounded-full px-4 py-2 text-sm font-semibold transition ${showUserLocation
-                                        ? "bg-blue-100 text-blue-700"
-                                        : "bg-slate-100 text-slate-700"
+                                    ? "bg-blue-100 text-blue-700"
+                                    : "bg-slate-100 text-slate-700"
                                     }`}
                             >
                                 {showUserLocation ? "Hide my location" : "Show my location"}
