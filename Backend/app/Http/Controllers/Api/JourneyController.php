@@ -208,4 +208,73 @@ class JourneyController extends Controller
       'departures' => $filtered,
     ]);
   }
+
+  public function mapStops(Request $request)
+  {
+    $validated = $request->validate([
+      'lat' => 'required|numeric',
+      'lon' => 'required|numeric',
+      'radius' => 'nullable|numeric',
+    ]);
+
+    $query = <<<'GRAPHQL'
+        query MapStops($lat: Float!, $lon: Float!, $radius: Int!) {
+          stopsByRadius(lat: $lat, lon: $lon, radius: $radius) {
+            edges {
+              node {
+                stop {
+                  gtfsId
+                  name
+                  code
+                  lat
+                  lon
+                  vehicleMode
+                  routes {
+                    gtfsId
+                    shortName
+                    longName
+                    mode
+                    color
+                  }
+                }
+                distance
+              }
+            }
+          }
+        }
+        GRAPHQL;
+
+    $response = Http::withHeaders([
+      'Content-Type' => 'application/json',
+      'digitransit-subscription-key' => env('DIGITRANSIT_API_KEY'),
+    ])->post(env('DIGITRANSIT_ROUTING_URL'), [
+      'query' => $query,
+      'variables' => [
+        'lat' => (float) $validated['lat'],
+        'lon' => (float) $validated['lon'],
+        'radius' => (int) ($validated['radius'] ?? 1200),
+      ],
+    ]);
+
+    if ($response->failed()) {
+      return response()->json([
+        'message' => 'Failed to fetch map stops',
+        'error' => $response->json(),
+      ], $response->status());
+    }
+
+    $data = $response->json();
+
+    $stops = collect($data['data']['stopsByRadius']['edges'] ?? [])
+      ->map(function ($edge) {
+        return $edge['node']['stop'] ?? null;
+      })
+      ->filter()
+      ->unique('gtfsId')
+      ->values();
+
+    return response()->json([
+      'stops' => $stops,
+    ]);
+  }
 }
