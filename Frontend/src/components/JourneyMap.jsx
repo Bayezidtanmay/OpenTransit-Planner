@@ -348,7 +348,7 @@ function ServiceTimetable({ leg }) {
 
     if (!currentTripStops.length) {
         return (
-            <div className="border-t bg-slate-50 px-4 py-4 text-sm text-slate-500">
+            <div className="bg-slate-50 p-4 lg:h-[720px] lg:overflow-y-auto text-sm text-slate-500">
                 No timetable data available for this service.
             </div>
         );
@@ -728,8 +728,8 @@ function JourneyMap({ selectedRoute }) {
                             <button
                                 onClick={() => setShowLiveVehicles((value) => !value)}
                                 className={`rounded-full px-4 py-2 text-sm font-semibold transition ${showLiveVehicles
-                                    ? "bg-green-100 text-green-700"
-                                    : "bg-slate-100 text-slate-700"
+                                        ? "bg-green-100 text-green-700"
+                                        : "bg-slate-100 text-slate-700"
                                     }`}
                             >
                                 {showLiveVehicles ? "Hide live vehicles" : "Show live vehicles"}
@@ -738,8 +738,8 @@ function JourneyMap({ selectedRoute }) {
                             <button
                                 onClick={() => setShowUserLocation((value) => !value)}
                                 className={`rounded-full px-4 py-2 text-sm font-semibold transition ${showUserLocation
-                                    ? "bg-blue-100 text-blue-700"
-                                    : "bg-slate-100 text-slate-700"
+                                        ? "bg-blue-100 text-blue-700"
+                                        : "bg-slate-100 text-slate-700"
                                     }`}
                             >
                                 {showUserLocation ? "Hide my location" : "Show my location"}
@@ -749,115 +749,121 @@ function JourneyMap({ selectedRoute }) {
                 </div>
             </div>
 
-            {isServiceRouteMode && <ServiceTimetable leg={selectedServiceLeg} />}
-
-            <MapContainer
-                center={start}
-                zoom={12}
-                scrollWheelZoom={true}
+            <div
                 className={
                     isServiceRouteMode
-                        ? "h-[750px] w-full"
-                        : "h-[620px] w-full"
+                        ? "grid lg:grid-cols-[420px_1fr]"
+                        : "block"
                 }
             >
-                <TileLayer
-                    attribution="Map tiles &copy; HSL / Digitransit / OpenStreetMap contributors"
-                    url="http://127.0.0.1:8000/api/map/tiles/{z}/{x}/{y}"
-                    tileSize={512}
-                    zoomOffset={-1}
-                />
-
-                <GeoJSON data={hslZones} style={getZoneStyle} interactive={false} />
-
-                {zoneLabels.map((label) => (
-                    <Marker
-                        key={`zone-${label.zone}`}
-                        position={label.position}
-                        icon={getZoneLabelIcon(label.zone)}
-                        interactive={false}
-                        zIndexOffset={500}
-                    />
-                ))}
-
-                <FitRouteBounds routeLines={mapLines} />
-
-                {mapLines.map((line, index) => (
-                    <Polyline
-                        key={`${line.routeName}-${index}`}
-                        positions={line.positions}
-                        pathOptions={{
-                            color: line.color,
-                            weight: isServiceRouteMode ? 8 : line.mode === "WALK" ? 4 : 7,
-                            opacity: line.mode === "WALK" ? 0.65 : 0.95,
-                            dashArray: line.mode === "WALK" ? "8 8" : null,
-                            lineCap: "round",
-                            lineJoin: "round",
-                        }}
-                    />
-                ))}
-
-                {!isServiceRouteMode &&
-                    routeLabels.map((label) => (
-                        <Marker
-                            key={label.key}
-                            position={label.position}
-                            icon={getRouteLabelIcon(label.leg)}
-                            zIndexOffset={2500}
-                            eventHandlers={{
-                                click: () => setSelectedServiceLeg(label.leg),
-                            }}
-                        >
-                            <Popup>
-                                Click badge to show full service route{" "}
-                                {label.leg.route?.shortName}
-                            </Popup>
-                        </Marker>
-                    ))}
-
-                {!isServiceRouteMode &&
-                    stopMarkers.map((marker) => (
-                        <Marker
-                            key={marker.key}
-                            position={marker.position}
-                            icon={createStopIcon(
-                                marker.color,
-                                marker.size,
-                                marker.isTransfer
-                            )}
-                            zIndexOffset={marker.isTransfer ? 2600 : 2000}
-                        >
-                            <Tooltip direction="top" offset={[0, -10]} opacity={1}>
-                                {marker.name}
-                            </Tooltip>
-
-                            <Popup>{marker.name}</Popup>
-                        </Marker>
-                    ))}
-
-                {!isServiceRouteMode &&
-                    transferBadges.map((badge) => (
-                        <Marker
-                            key={badge.key}
-                            position={badge.position}
-                            icon={getTransferBadgeIcon(badge.text)}
-                            interactive={false}
-                            zIndexOffset={3000}
-                        />
-                    ))}
-
-                {!isServiceRouteMode && (
-                    <>
-                        <LiveVehiclesLayer
-                            enabled={showLiveVehicles}
-                            routeLines={routeLines}
-                            selectedLegs={legs.filter((leg) => leg.route)}
-                        />
-
-                        <UserLocationMarker enabled={showUserLocation} />
-                    </>
+                {isServiceRouteMode && (
+                    <ServiceTimetable leg={selectedServiceLeg} />
                 )}
-            </MapContainer>
+
+                <MapContainer
+                    center={start}
+                    zoom={12}
+                    scrollWheelZoom={true}
+                    className={isServiceRouteMode ? "h-[720px] w-full" : "h-[620px] w-full"}
+                >
+                    <TileLayer
+                        attribution="Map tiles &copy; HSL / Digitransit / OpenStreetMap contributors"
+                        url="http://127.0.0.1:8000/api/map/tiles/{z}/{x}/{y}"
+                        tileSize={512}
+                        zoomOffset={-1}
+                    />
+
+                    <GeoJSON data={hslZones} style={getZoneStyle} interactive={false} />
+
+                    {zoneLabels.map((label) => (
+                        <Marker
+                            key={`zone-${label.zone}`}
+                            position={label.position}
+                            icon={getZoneLabelIcon(label.zone)}
+                            interactive={false}
+                            zIndexOffset={500}
+                        />
+                    ))}
+
+                    <FitRouteBounds routeLines={mapLines} />
+
+                    {mapLines.map((line, index) => (
+                        <Polyline
+                            key={`${line.routeName}-${index}`}
+                            positions={line.positions}
+                            pathOptions={{
+                                color: line.color,
+                                weight: isServiceRouteMode ? 8 : line.mode === "WALK" ? 4 : 7,
+                                opacity: line.mode === "WALK" ? 0.65 : 0.95,
+                                dashArray: line.mode === "WALK" ? "8 8" : null,
+                                lineCap: "round",
+                                lineJoin: "round",
+                            }}
+                        />
+                    ))}
+
+                    {!isServiceRouteMode &&
+                        routeLabels.map((label) => (
+                            <Marker
+                                key={label.key}
+                                position={label.position}
+                                icon={getRouteLabelIcon(label.leg)}
+                                zIndexOffset={2500}
+                                eventHandlers={{
+                                    click: () => setSelectedServiceLeg(label.leg),
+                                }}
+                            >
+                                <Popup>
+                                    Click badge to show full service route{" "}
+                                    {label.leg.route?.shortName}
+                                </Popup>
+                            </Marker>
+                        ))}
+
+                    {!isServiceRouteMode &&
+                        stopMarkers.map((marker) => (
+                            <Marker
+                                key={marker.key}
+                                position={marker.position}
+                                icon={createStopIcon(
+                                    marker.color,
+                                    marker.size,
+                                    marker.isTransfer
+                                )}
+                                zIndexOffset={marker.isTransfer ? 2600 : 2000}
+                            >
+                                <Tooltip direction="top" offset={[0, -10]} opacity={1}>
+                                    {marker.name}
+                                </Tooltip>
+
+                                <Popup>{marker.name}</Popup>
+                            </Marker>
+                        ))}
+
+                    {!isServiceRouteMode &&
+                        transferBadges.map((badge) => (
+                            <Marker
+                                key={badge.key}
+                                position={badge.position}
+                                icon={getTransferBadgeIcon(badge.text)}
+                                interactive={false}
+                                zIndexOffset={3000}
+                            />
+                        ))}
+
+                    {!isServiceRouteMode && (
+                        <>
+                            <LiveVehiclesLayer
+                                enabled={showLiveVehicles}
+                                routeLines={routeLines}
+                                selectedLegs={legs.filter((leg) => leg.route)}
+                            />
+
+                            <UserLocationMarker enabled={showUserLocation} />
+                        </>
+                    )}
+                </MapContainer>
+            </div>
         </div>
     );
 }

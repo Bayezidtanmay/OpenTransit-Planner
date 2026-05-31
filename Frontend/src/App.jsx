@@ -9,7 +9,8 @@ function App() {
   const [toPlace, setToPlace] = useState(null);
   const [routes, setRoutes] = useState([]);
   const [pageInfo, setPageInfo] = useState(null);
-  const [selectedRouteIndex, setSelectedRouteIndex] = useState(0);
+  const [selectedRouteIndex, setSelectedRouteIndex] = useState(null);
+  const [mapOpened, setMapOpened] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [locating, setLocating] = useState(false);
@@ -75,7 +76,8 @@ function App() {
     setLoading(true);
     setRoutes([]);
     setPageInfo(null);
-    setSelectedRouteIndex(0);
+    setSelectedRouteIndex(null);
+    setMapOpened(false);
 
     try {
       const response = await api.post("/journeys/plan", {
@@ -125,19 +127,33 @@ function App() {
     }
   };
 
+  const openRouteMap = (index) => {
+    setSelectedRouteIndex(index);
+    setMapOpened(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const backToRouteOptions = () => {
+    setMapOpened(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const selectedRoute =
+    selectedRouteIndex !== null ? routes[selectedRouteIndex] : null;
+
   return (
     <div className="min-h-screen bg-slate-100 p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="bg-white rounded-2xl shadow p-6 mb-6">
+      <div className="mx-auto max-w-7xl">
+        <div className="mb-6 rounded-2xl bg-white p-6 shadow">
           <h1 className="text-3xl font-bold text-slate-900">
             OpenTransit Planner
           </h1>
 
-          <p className="text-slate-600 mt-2">
+          <p className="mt-2 text-slate-600">
             Helsinki open journey planner powered by Digitransit.
           </p>
 
-          <div className="grid md:grid-cols-2 gap-4 mt-6">
+          <div className="mt-6 grid gap-4 md:grid-cols-2">
             <div>
               <LocationAutocomplete
                 label="From"
@@ -169,27 +185,27 @@ function App() {
           <button
             onClick={searchJourney}
             disabled={loading}
-            className="mt-6 bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold hover:bg-blue-800 disabled:bg-slate-400"
+            className="mt-6 rounded-xl bg-blue-700 px-6 py-3 font-semibold text-white hover:bg-blue-800 disabled:bg-slate-400"
           >
             {loading ? "Searching routes..." : "Search journey"}
           </button>
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-6">
-          <div className="space-y-4">
+        {!mapOpened && (
+          <div className="mx-auto max-w-4xl space-y-4">
             {routes.map((route, index) => (
               <RouteOptionCard
                 key={index}
                 route={route}
                 index={index}
                 selected={selectedRouteIndex === index}
-                onSelect={() => setSelectedRouteIndex(index)}
+                onSelect={() => openRouteMap(index)}
                 onClose={() => setSelectedRouteIndex(null)}
               />
             ))}
 
             {!loading && routes.length === 0 && (
-              <div className="bg-white rounded-2xl shadow p-6 text-slate-500">
+              <div className="rounded-2xl bg-white p-6 text-slate-500 shadow">
                 Search a journey to see route options.
               </div>
             )}
@@ -198,17 +214,26 @@ function App() {
               <button
                 onClick={loadMoreJourneys}
                 disabled={loadingMore}
-                className="w-full bg-white border border-blue-200 text-blue-700 rounded-2xl py-4 font-semibold shadow hover:bg-blue-50 disabled:bg-slate-100 disabled:text-slate-400"
+                className="w-full rounded-2xl border border-blue-200 bg-white py-4 font-semibold text-blue-700 shadow hover:bg-blue-50 disabled:bg-slate-100 disabled:text-slate-400"
               >
                 {loadingMore ? "Loading more journeys..." : "Load more journeys"}
               </button>
             )}
           </div>
+        )}
 
-          <div className="lg:sticky lg:top-6 self-start">
-            <JourneyMap selectedRoute={routes[selectedRouteIndex] || null} />
+        {mapOpened && selectedRoute && (
+          <div className="space-y-4">
+            <button
+              onClick={backToRouteOptions}
+              className="rounded-full bg-white px-5 py-3 font-semibold text-blue-700 shadow transition hover:bg-blue-50"
+            >
+              ← Back to route options
+            </button>
+
+            <JourneyMap selectedRoute={selectedRoute} />
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
