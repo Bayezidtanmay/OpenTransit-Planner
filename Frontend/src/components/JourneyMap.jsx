@@ -545,12 +545,19 @@ function JourneyMap({ selectedRoute }) {
 
     const legs = selectedRoute.node.legs;
 
-    const zoneLabels = hslZones.features
-        .map((feature) => ({
-            zone: getZoneName(feature),
-            position: getPolygonCenter(feature.geometry),
-        }))
-        .filter((label) => label.zone && label.position);
+    const zoneLabels = [
+        ...hslZones.features
+            .map((feature) => ({
+                zone: getZoneName(feature),
+                position: getPolygonCenter(feature.geometry),
+            }))
+            .filter((label) => label.zone && label.position),
+
+        {
+            zone: "D",
+            position: [60.16, 24.38],
+        },
+    ];
 
     const routeLines = legs
         .filter((leg) => leg.legGeometry?.points)
