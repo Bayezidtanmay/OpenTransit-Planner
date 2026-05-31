@@ -17,6 +17,7 @@ import LiveVehiclesLayer from "./LiveVehiclesLayer";
 import UserLocationMarker from "./UserLocationMarker";
 import hslZones from "../data/hslZones.json";
 import api from "../api";
+import TransitStopsLayer from "./TransitStopsLayer";
 
 const ORANGE_BUS_ROUTES = [
     "20", "30", "40", "200", "400", "500", "510", "520", "530",
@@ -783,15 +784,17 @@ function JourneyMap({ selectedRoute }) {
 
                     <GeoJSON data={hslZones} style={getZoneStyle} interactive={false} />
 
-                    {zoneLabels.map((label) => (
+                    {zoneLabels.map((label, index) => (
                         <Marker
-                            key={`zone-${label.zone}`}
+                            key={`zone-${label.zone}-${index}`}
                             position={label.position}
                             icon={getZoneLabelIcon(label.zone)}
                             interactive={false}
                             zIndexOffset={500}
                         />
                     ))}
+
+                    <TransitStopsLayer />
 
                     <FitRouteBounds routeLines={mapLines} />
 
