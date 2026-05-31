@@ -1,12 +1,26 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import api from "./api";
 import LocationAutocomplete from "./components/LocationAutocomplete";
 import JourneyMap from "./components/JourneyMap";
 import RouteOptionCard from "./components/RouteOptionCard";
+import SavedPlaces from "./components/SavedPlaces";
+
+const SAVED_PLACES_KEY = "opentransit_saved_places";
 
 function App() {
   const [fromPlace, setFromPlace] = useState(null);
   const [toPlace, setToPlace] = useState(null);
+  const [savedPlaces, setSavedPlaces] = useState(() => {
+    const storedPlaces = localStorage.getItem(SAVED_PLACES_KEY);
+
+    if (!storedPlaces) return [];
+
+    try {
+      return JSON.parse(storedPlaces);
+    } catch {
+      return [];
+    }
+  });
   const [routes, setRoutes] = useState([]);
   const [pageInfo, setPageInfo] = useState(null);
   const [selectedRouteIndex, setSelectedRouteIndex] = useState(null);
@@ -14,6 +28,36 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [locating, setLocating] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem(SAVED_PLACES_KEY, JSON.stringify(savedPlaces));
+  }, [savedPlaces]);
+
+  const savePlace = (label, place) => {
+    if (!place) return;
+
+    const newPlace = {
+      id: `${label.toLowerCase().replace(/\s+/g, "-")}-${Date.now()}`,
+      label,
+      place,
+    };
+
+    setSavedPlaces((previousPlaces) => [newPlace, ...previousPlaces]);
+  };
+
+  const removePlace = (id) => {
+    setSavedPlaces((previousPlaces) =>
+      previousPlaces.filter((place) => place.id !== id)
+    );
+  };
+
+  const useSavedPlace = (place, target) => {
+    if (target === "from") {
+      setFromPlace(place);
+    } else {
+      setToPlace(place);
+    }
+  };
 
   const useCurrentLocation = () => {
     if (!navigator.geolocation) {
@@ -181,6 +225,15 @@ function App() {
               markerColor="red"
             />
           </div>
+
+          <SavedPlaces
+            savedPlaces={savedPlaces}
+            fromPlace={fromPlace}
+            toPlace={toPlace}
+            onSavePlace={savePlace}
+            onRemovePlace={removePlace}
+            onUsePlace={useSavedPlace}
+          />
 
           <button
             onClick={searchJourney}
