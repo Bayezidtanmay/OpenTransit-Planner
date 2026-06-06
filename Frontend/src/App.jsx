@@ -4,6 +4,7 @@ import LocationAutocomplete from "./components/LocationAutocomplete";
 import JourneyMap from "./components/JourneyMap";
 import RouteOptionCard from "./components/RouteOptionCard";
 import SavedPlaces from "./components/SavedPlaces";
+import WeatherCard from "./components/WeatherCard";
 
 const SAVED_PLACES_KEY = "opentransit_saved_places";
 
@@ -234,6 +235,8 @@ function App() {
             onRemovePlace={removePlace}
             onUsePlace={useSavedPlace}
           />
+
+          <WeatherCard place={toPlace} />
 
           <button
             onClick={searchJourney}
