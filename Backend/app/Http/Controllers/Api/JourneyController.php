@@ -277,4 +277,70 @@ class JourneyController extends Controller
       'stops' => $stops,
     ]);
   }
+
+  public function alerts(Request $request)
+  {
+    $validated = $request->validate([
+      'routeIds' => 'nullable|string',
+    ]);
+
+    $routeIds = collect(explode(',', $validated['routeIds'] ?? ''))
+      ->map(fn($id) => trim($id))
+      ->filter()
+      ->values();
+
+    $query = <<<'GRAPHQL'
+    query Alerts {
+      alerts(feeds: ["HSL"]) {
+        alertHeaderText
+        alertDescriptionText
+        alertUrl
+        alertSeverityLevel
+        alertEffect
+        effectiveStartDate
+        effectiveEndDate
+        entities {
+          __typename
+          ... on Route {
+            gtfsId
+          }
+          ... on Stop {
+            gtfsId
+          }
+        }
+      }
+    }
+    GRAPHQL;
+
+    $response = Http::withHeaders([
+      'Content-Type' => 'application/json',
+      'Accept-Language' => 'en',
+      'digitransit-subscription-key' => env('DIGITRANSIT_API_KEY'),
+    ])->post(env('DIGITRANSIT_ROUTING_URL'), [
+      'query' => $query,
+    ]);
+
+    if ($response->failed()) {
+      return response()->json([
+        'message' => 'Failed to fetch route alerts',
+        'error' => $response->json(),
+      ], $response->status());
+    }
+
+    $alerts = collect($response->json('data.alerts') ?? []);
+
+    if ($routeIds->isNotEmpty()) {
+      $alerts = $alerts->filter(function ($alert) use ($routeIds) {
+        $alertRouteIds = collect($alert['entities'] ?? [])
+          ->filter(fn($entity) => ($entity['__typename'] ?? null) === 'Route')
+          ->pluck('gtfsId');
+
+        return $alertRouteIds->intersect($routeIds)->isNotEmpty();
+      });
+    }
+
+    return response()->json([
+      'alerts' => $alerts->values(),
+    ]);
+  }
 }

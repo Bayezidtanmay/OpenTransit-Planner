@@ -17,3 +17,4 @@ Route::get('/map/tiles/{z}/{x}/{y}', [MapTileController::class, 'tile']);
 Route::get('/geocode/reverse', [GeocodingController::class, 'reverse']);
 Route::get('/journeys/stop-schedule', [JourneyController::class, 'stopSchedule']);
 Route::get('/journeys/map-stops', [JourneyController::class, 'mapStops']);
+Route::get('/journeys/alerts', [JourneyController::class, 'alerts']);
