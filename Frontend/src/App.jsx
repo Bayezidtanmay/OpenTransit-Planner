@@ -236,7 +236,7 @@ function App() {
             onUsePlace={useSavedPlace}
           />
 
-          <WeatherCard place={toPlace} />
+          <WeatherCard fromPlace={fromPlace} toPlace={toPlace} />
 
           <button
             onClick={searchJourney}

@@ -18,97 +18,119 @@ const getWeatherIcon = (code) => {
     return CloudSun;
 };
 
-function WeatherCard({ place }) {
-    const [weather, setWeather] = useState(null);
+const fetchWeather = async (place) => {
+    if (!place?.lat || !place?.lon) return null;
+
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${place.lat}&longitude=${place.lon}&current=temperature_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m&timezone=auto`;
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    return data.current || null;
+};
+
+function WeatherPlace({ title, place, weather }) {
+    const Icon = getWeatherIcon(weather.weather_code);
+
+    return (
+        <div className="rounded-2xl bg-white p-4 shadow-sm">
+            <div className="mb-3 flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
+                    <Icon size={25} />
+                </div>
+
+                <div>
+                    <div className="text-xs font-bold uppercase text-blue-700">{title}</div>
+                    <div className="line-clamp-1 font-black text-slate-900">
+                        {place?.name || place?.label}
+                    </div>
+                </div>
+            </div>
+
+            <div className="flex items-end justify-between gap-3">
+                <div>
+                    <div className="text-3xl font-black text-slate-900">
+                        {Math.round(weather.temperature_2m)}°C
+                    </div>
+                    <div className="text-sm font-semibold text-slate-500">
+                        {getWeatherText(weather.weather_code)}
+                    </div>
+                </div>
+
+                <div className="text-right text-sm text-slate-500">
+                    <div>Feels {Math.round(weather.apparent_temperature)}°C</div>
+                    <div className="flex items-center justify-end gap-1">
+                        <Wind size={14} />
+                        {Math.round(weather.wind_speed_10m)} km/h
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function WeatherCard({ fromPlace, toPlace }) {
+    const [fromWeather, setFromWeather] = useState(null);
+    const [toWeather, setToWeather] = useState(null);
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        const fetchWeather = async () => {
-            if (!place?.lat || !place?.lon) {
-                setWeather(null);
+        const loadWeather = async () => {
+            if (!fromPlace?.lat || !fromPlace?.lon || !toPlace?.lat || !toPlace?.lon) {
+                setFromWeather(null);
+                setToWeather(null);
                 return;
             }
 
             try {
                 setLoading(true);
 
-                const url = `https://api.open-meteo.com/v1/forecast?latitude=${place.lat}&longitude=${place.lon}&current=temperature_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m&timezone=auto`;
+                const [fromResult, toResult] = await Promise.all([
+                    fetchWeather(fromPlace),
+                    fetchWeather(toPlace),
+                ]);
 
-                const response = await fetch(url);
-                const data = await response.json();
-
-                setWeather(data.current || null);
+                setFromWeather(fromResult);
+                setToWeather(toResult);
             } catch (error) {
                 console.error("Weather fetch failed:", error);
-                setWeather(null);
+                setFromWeather(null);
+                setToWeather(null);
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchWeather();
-    }, [place]);
+        loadWeather();
+    }, [fromPlace, toPlace]);
 
-    if (!place) return null;
+    if (!fromPlace || !toPlace) return null;
 
     if (loading) {
         return (
             <div className="mt-6 rounded-2xl border border-slate-200 bg-blue-50 p-4 text-sm font-semibold text-blue-700">
-                Loading destination weather...
+                Loading journey weather...
             </div>
         );
     }
 
-    if (!weather) return null;
-
-    const Icon = getWeatherIcon(weather.weather_code);
+    if (!fromWeather || !toWeather) return null;
 
     return (
         <div className="mt-6 rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50 to-sky-50 p-5">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-blue-700 shadow-sm">
-                        <Icon size={30} />
-                    </div>
+            <div className="mb-4">
+                <h2 className="text-lg font-black text-slate-900">Journey weather</h2>
+                <p className="text-sm text-slate-500">
+                    Weather at your starting point and destination.
+                </p>
+            </div>
 
-                    <div>
-                        <div className="text-sm font-bold uppercase text-blue-700">
-                            Destination weather
-                        </div>
+            <div className="grid gap-4 md:grid-cols-[1fr_auto_1fr] md:items-center">
+                <WeatherPlace title="From" place={fromPlace} weather={fromWeather} />
 
-                        <div className="text-lg font-black text-slate-900">
-                            {place.name || place.label}
-                        </div>
+                <div className="hidden text-3xl font-black text-blue-300 md:block">→</div>
 
-                        <div className="text-sm text-slate-500">
-                            {getWeatherText(weather.weather_code)}
-                        </div>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-4 text-center">
-                    <div>
-                        <div className="text-2xl font-black text-slate-900">
-                            {Math.round(weather.temperature_2m)}°C
-                        </div>
-                        <div className="text-xs font-semibold text-slate-500">Temp</div>
-                    </div>
-
-                    <div>
-                        <div className="text-2xl font-black text-slate-900">
-                            {Math.round(weather.apparent_temperature)}°C
-                        </div>
-                        <div className="text-xs font-semibold text-slate-500">Feels</div>
-                    </div>
-
-                    <div>
-                        <div className="flex items-center justify-center gap-1 text-2xl font-black text-slate-900">
-                            <Wind size={20} />
-                            {Math.round(weather.wind_speed_10m)}
-                        </div>
-                        <div className="text-xs font-semibold text-slate-500">km/h</div>
-                    </div>
-                </div>
+                <WeatherPlace title="To" place={toPlace} weather={toWeather} />
             </div>
         </div>
     );
