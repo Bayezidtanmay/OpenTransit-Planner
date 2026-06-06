@@ -19,6 +19,7 @@ import hslZones from "../data/hslZones.json";
 import api from "../api";
 import TransitStopsLayer from "./TransitStopsLayer";
 import { getRequiredTicketZone } from "../utils/ticketZones";
+import RouteAlerts from "./RouteAlerts";
 
 const ORANGE_BUS_ROUTES = [
     "20", "30", "40", "200", "400", "500", "510", "520", "530",
@@ -757,6 +758,7 @@ function JourneyMap({ selectedRoute }) {
                             </button>
                         </>
                     )}
+                    {!isServiceRouteMode && <RouteAlerts legs={legs} />}
                 </div>
                 {!isServiceRouteMode && (
                     <div className="mt-4 flex items-center justify-between gap-4 rounded-2xl bg-blue-700 px-5 py-4 text-white">
