@@ -249,8 +249,8 @@ function RouteOptionCard({ route, selected, onSelect, onClose }) {
         <div
             onClick={onSelect}
             className={`w-full cursor-pointer border-b bg-white px-4 py-3 text-left transition hover:bg-slate-50 ${selected
-                    ? "border-l-4 border-l-blue-600 bg-blue-50"
-                    : "border-l-4 border-l-transparent"
+                ? "border-l-4 border-l-blue-600 bg-blue-50"
+                : "border-l-4 border-l-transparent"
                 }`}
         >
             <div className="flex items-start justify-between gap-3">

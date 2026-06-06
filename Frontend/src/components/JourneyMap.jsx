@@ -18,6 +18,7 @@ import UserLocationMarker from "./UserLocationMarker";
 import hslZones from "../data/hslZones.json";
 import api from "../api";
 import TransitStopsLayer from "./TransitStopsLayer";
+import { getRequiredTicketZone } from "../utils/ticketZones";
 
 const ORANGE_BUS_ROUTES = [
     "20", "30", "40", "200", "400", "500", "510", "520", "530",
@@ -545,6 +546,7 @@ function JourneyMap({ selectedRoute }) {
     }
 
     const legs = selectedRoute.node.legs;
+    const ticketZone = getRequiredTicketZone(legs);
 
     const zoneLabels = [
         ...hslZones.features
@@ -756,6 +758,27 @@ function JourneyMap({ selectedRoute }) {
                         </>
                     )}
                 </div>
+                {!isServiceRouteMode && (
+                    <div className="mt-4 flex items-center justify-between gap-4 rounded-2xl bg-blue-700 px-5 py-4 text-white">
+                        <div>
+                            <div className="text-sm font-semibold opacity-90">
+                                Ticket required:
+                            </div>
+
+                            <div className="text-3xl font-black">
+                                {ticketZone}
+                            </div>
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={() => alert("View only")}
+                            className="rounded-full bg-white px-6 py-3 font-bold text-blue-700 transition hover:bg-blue-50"
+                        >
+                            Buy a ticket
+                        </button>
+                    </div>
+                )}
             </div>
 
             <div
