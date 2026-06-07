@@ -21,18 +21,9 @@ const isOrangeBusStop = (stop) => {
 const getStopType = (stop) => {
     const routes = stop.routes || [];
 
-    if (stop.vehicleMode === "SUBWAY" || routes.some((route) => route.mode === "SUBWAY")) {
-        return "METRO";
-    }
-
-    if (stop.vehicleMode === "RAIL" || routes.some((route) => route.mode === "RAIL")) {
-        return "RAIL";
-    }
-
-    if (stop.vehicleMode === "TRAM" || routes.some((route) => route.mode === "TRAM")) {
-        return "TRAM";
-    }
-
+    if (stop.vehicleMode === "SUBWAY" || routes.some((route) => route.mode === "SUBWAY")) return "METRO";
+    if (stop.vehicleMode === "RAIL" || routes.some((route) => route.mode === "RAIL")) return "RAIL";
+    if (stop.vehicleMode === "TRAM" || routes.some((route) => route.mode === "TRAM")) return "TRAM";
     if (stop.vehicleMode === "BUS" || routes.some((route) => route.mode === "BUS")) {
         return isOrangeBusStop(stop) ? "ORANGE_BUS" : "BUS";
     }
@@ -48,13 +39,34 @@ const getColor = (type) => {
     return "#007ac9";
 };
 
+const formatBoardTime = (serviceDay, seconds) => {
+    if (!serviceDay || seconds === null || seconds === undefined) return "—";
+
+    const date = new Date((Number(serviceDay) + Number(seconds)) * 1000);
+
+    return date.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+    });
+};
+
+const getMinutesUntil = (serviceDay, seconds) => {
+    if (!serviceDay || seconds === null || seconds === undefined) return "—";
+
+    const departureMs = (Number(serviceDay) + Number(seconds)) * 1000;
+    const diffMinutes = Math.round((departureMs - Date.now()) / 60000);
+
+    if (diffMinutes <= 0) return "now";
+    if (diffMinutes === 1) return "1 min";
+
+    return `${diffMinutes} min`;
+};
+
 const getStopIcon = (stop, zoom) => {
     const type = getStopType(stop);
     const color = getColor(type);
 
-    const isStationIcon =
-        type === "METRO" ||
-        type === "RAIL";
+    const isStationIcon = type === "METRO" || type === "RAIL";
     const showBigBusIcon = zoom >= 17 && (type === "BUS" || type === "ORANGE_BUS");
 
     if (!isStationIcon && !showBigBusIcon) {
@@ -75,14 +87,7 @@ const getStopIcon = (stop, zoom) => {
         });
     }
 
-    const content =
-        type === "METRO"
-            ? "M"
-            : type === "RAIL"
-                ? "▣"
-                : type === "TRAM"
-                    ? "▯"
-                    : "▣";
+    const content = type === "METRO" ? "M" : "▣";
 
     return L.divIcon({
         html: `
@@ -114,6 +119,8 @@ const getStopIcon = (stop, zoom) => {
 function TransitStopsLayer() {
     const [stops, setStops] = useState([]);
     const [mapInfo, setMapInfo] = useState(null);
+    const [stopBoards, setStopBoards] = useState({});
+    const [loadingStopId, setLoadingStopId] = useState(null);
 
     const updateMapInfo = (map) => {
         const center = map.getCenter();
@@ -183,39 +190,116 @@ function TransitStopsLayer() {
         return () => clearTimeout(delay);
     }, [mapInfo]);
 
+    const fetchStopBoard = async (stopId) => {
+        if (!stopId || stopBoards[stopId]) return;
+
+        try {
+            setLoadingStopId(stopId);
+
+            const response = await api.get("/journeys/stop-board", {
+                params: { stopId },
+            });
+
+            setStopBoards((previousBoards) => ({
+                ...previousBoards,
+                [stopId]: response.data,
+            }));
+        } catch (error) {
+            console.error("Stop board failed:", error);
+        } finally {
+            setLoadingStopId(null);
+        }
+    };
+
     return (
         <>
-            {stops.map((stop) => (
-                <Marker
-                    key={stop.gtfsId}
-                    position={[stop.lat, stop.lon]}
-                    icon={getStopIcon(stop, mapInfo?.zoom || 13)}
-                    zIndexOffset={700}
-                >
-                    <Popup>
-                        <div className="min-w-[180px]">
-                            <div className="font-bold text-slate-900">{stop.name}</div>
+            {stops.map((stop) => {
+                const board = stopBoards[stop.gtfsId];
+                const departures = board?.stoptimesWithoutPatterns || [];
 
-                            {stop.code && (
-                                <div className="text-sm text-slate-500">Stop {stop.code}</div>
-                            )}
-
-                            {stop.routes?.length > 0 && (
-                                <div className="mt-2 flex flex-wrap gap-1">
-                                    {stop.routes.slice(0, 8).map((route) => (
-                                        <span
-                                            key={`${stop.gtfsId}-${route.shortName}`}
-                                            className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-700"
-                                        >
-                                            {route.shortName}
-                                        </span>
-                                    ))}
+                return (
+                    <Marker
+                        key={stop.gtfsId}
+                        position={[stop.lat, stop.lon]}
+                        icon={getStopIcon(stop, mapInfo?.zoom || 13)}
+                        zIndexOffset={700}
+                        eventHandlers={{
+                            popupopen: () => fetchStopBoard(stop.gtfsId),
+                        }}
+                    >
+                        <Popup>
+                            <div className="min-w-[240px]">
+                                <div className="font-black text-slate-900">
+                                    {stop.name}
                                 </div>
-                            )}
-                        </div>
-                    </Popup>
-                </Marker>
-            ))}
+
+                                {stop.code && (
+                                    <div className="text-sm text-slate-500">
+                                        Stop {stop.code}
+                                    </div>
+                                )}
+
+                                <div className="mt-3 border-t border-slate-200 pt-3">
+                                    <div className="mb-2 text-xs font-black uppercase text-slate-400">
+                                        Live departures
+                                    </div>
+
+                                    {loadingStopId === stop.gtfsId && (
+                                        <div className="text-sm font-semibold text-slate-500">
+                                            Loading departures...
+                                        </div>
+                                    )}
+
+                                    {loadingStopId !== stop.gtfsId && departures.length === 0 && (
+                                        <div className="text-sm font-semibold text-slate-500">
+                                            No departures available.
+                                        </div>
+                                    )}
+
+                                    {departures.slice(0, 6).map((item, index) => {
+                                        const departure =
+                                            item.realtimeDeparture ??
+                                            item.scheduledDeparture;
+
+                                        const route = item.trip?.route;
+                                        const routeColor = route?.color
+                                            ? `#${route.color.replace("#", "")}`
+                                            : "#007ac9";
+
+                                        return (
+                                            <div
+                                                key={`${item.trip?.gtfsId}-${index}`}
+                                                className="grid grid-cols-[46px_1fr_52px] items-center gap-2 border-b border-slate-100 py-2 last:border-b-0"
+                                            >
+                                                <div
+                                                    className="rounded-md px-2 py-1 text-center text-xs font-black text-white"
+                                                    style={{ backgroundColor: routeColor }}
+                                                >
+                                                    {route?.shortName || "?"}
+                                                </div>
+
+                                                <div className="min-w-0">
+                                                    <div className="truncate text-sm font-bold text-slate-800">
+                                                        {item.headsign || route?.longName || "Unknown destination"}
+                                                    </div>
+
+                                                    <div className="text-xs font-semibold text-slate-400">
+                                                        {formatBoardTime(item.serviceDay, departure)}
+                                                    </div>
+                                                </div>
+
+                                                <div className="text-right text-sm font-black text-blue-700">
+                                                    {getMinutesUntil(item.serviceDay, departure)}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </Popup>
+                    </Marker>
+                );
+            })}
         </>
     );
 }
