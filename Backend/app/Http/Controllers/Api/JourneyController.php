@@ -343,4 +343,56 @@ class JourneyController extends Controller
       'alerts' => $alerts->values(),
     ]);
   }
+
+  public function stopBoard(Request $request)
+  {
+    $validated = $request->validate([
+      'stopId' => 'required|string',
+    ]);
+
+    $query = <<<'GRAPHQL'
+    query StopBoard($stopId: String!) {
+      stop(id: $stopId) {
+        gtfsId
+        name
+        code
+        stoptimesWithoutPatterns(numberOfDepartures: 12) {
+          serviceDay
+          scheduledDeparture
+          realtimeDeparture
+          headsign
+          trip {
+            gtfsId
+            route {
+              gtfsId
+              shortName
+              longName
+              mode
+              color
+            }
+          }
+        }
+      }
+    }
+    GRAPHQL;
+
+    $response = Http::withHeaders([
+      'Content-Type' => 'application/json',
+      'digitransit-subscription-key' => env('DIGITRANSIT_API_KEY'),
+    ])->post(env('DIGITRANSIT_ROUTING_URL'), [
+      'query' => $query,
+      'variables' => [
+        'stopId' => $validated['stopId'],
+      ],
+    ]);
+
+    if ($response->failed()) {
+      return response()->json([
+        'message' => 'Failed to fetch stop board',
+        'error' => $response->json(),
+      ], $response->status());
+    }
+
+    return response()->json($response->json('data.stop'));
+  }
 }

@@ -18,3 +18,4 @@ Route::get('/geocode/reverse', [GeocodingController::class, 'reverse']);
 Route::get('/journeys/stop-schedule', [JourneyController::class, 'stopSchedule']);
 Route::get('/journeys/map-stops', [JourneyController::class, 'mapStops']);
 Route::get('/journeys/alerts', [JourneyController::class, 'alerts']);
+Route::get('/journeys/stop-board', [JourneyController::class, 'stopBoard']);
