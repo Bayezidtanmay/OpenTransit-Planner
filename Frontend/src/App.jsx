@@ -5,12 +5,15 @@ import JourneyMap from "./components/JourneyMap";
 import RouteOptionCard from "./components/RouteOptionCard";
 import SavedPlaces from "./components/SavedPlaces";
 import WeatherCard from "./components/WeatherCard";
+import JourneyHistory from "./components/JourneyHistory";
 
 const SAVED_PLACES_KEY = "opentransit_saved_places";
+const JOURNEY_HISTORY_KEY = "opentransit_journey_history";
 
 function App() {
   const [fromPlace, setFromPlace] = useState(null);
   const [toPlace, setToPlace] = useState(null);
+
   const [savedPlaces, setSavedPlaces] = useState(() => {
     const storedPlaces = localStorage.getItem(SAVED_PLACES_KEY);
 
@@ -22,6 +25,19 @@ function App() {
       return [];
     }
   });
+
+  const [journeyHistory, setJourneyHistory] = useState(() => {
+    const storedHistory = localStorage.getItem(JOURNEY_HISTORY_KEY);
+
+    if (!storedHistory) return [];
+
+    try {
+      return JSON.parse(storedHistory);
+    } catch {
+      return [];
+    }
+  });
+
   const [routes, setRoutes] = useState([]);
   const [pageInfo, setPageInfo] = useState(null);
   const [selectedRouteIndex, setSelectedRouteIndex] = useState(null);
@@ -33,6 +49,10 @@ function App() {
   useEffect(() => {
     localStorage.setItem(SAVED_PLACES_KEY, JSON.stringify(savedPlaces));
   }, [savedPlaces]);
+
+  useEffect(() => {
+    localStorage.setItem(JOURNEY_HISTORY_KEY, JSON.stringify(journeyHistory));
+  }, [journeyHistory]);
 
   const savePlace = (label, place) => {
     if (!place) return;
@@ -58,6 +78,58 @@ function App() {
     } else {
       setToPlace(place);
     }
+
+    setRoutes([]);
+    setPageInfo(null);
+    setSelectedRouteIndex(null);
+    setMapOpened(false);
+  };
+
+  const saveJourneyHistory = (from, to) => {
+    if (!from || !to) return;
+
+    const newItem = {
+      id: `${Date.now()}`,
+      fromPlace: from,
+      toPlace: to,
+      searchedAt: new Date().toISOString(),
+    };
+
+    setJourneyHistory((previousHistory) => {
+      const filteredHistory = previousHistory.filter((item) => {
+        const sameFrom =
+          item.fromPlace?.label === from.label ||
+          item.fromPlace?.name === from.name;
+
+        const sameTo =
+          item.toPlace?.label === to.label ||
+          item.toPlace?.name === to.name;
+
+        return !(sameFrom && sameTo);
+      });
+
+      return [newItem, ...filteredHistory].slice(0, 6);
+    });
+  };
+
+  const useJourneyHistory = (item) => {
+    setFromPlace(item.fromPlace);
+    setToPlace(item.toPlace);
+    setRoutes([]);
+    setPageInfo(null);
+    setSelectedRouteIndex(null);
+    setMapOpened(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const removeJourneyHistory = (id) => {
+    setJourneyHistory((previousHistory) =>
+      previousHistory.filter((item) => item.id !== id)
+    );
+  };
+
+  const clearJourneyHistory = () => {
+    setJourneyHistory([]);
   };
 
   const useCurrentLocation = () => {
@@ -137,6 +209,7 @@ function App() {
 
       setRoutes(journeyRoutes);
       setPageInfo(planConnection.pageInfo || null);
+      saveJourneyHistory(fromPlace, toPlace);
     } catch (error) {
       console.error(error);
       alert("Journey search failed");
@@ -234,6 +307,13 @@ function App() {
             onSavePlace={savePlace}
             onRemovePlace={removePlace}
             onUsePlace={useSavedPlace}
+          />
+
+          <JourneyHistory
+            history={journeyHistory}
+            onUseHistory={useJourneyHistory}
+            onRemoveHistory={removeJourneyHistory}
+            onClearHistory={clearJourneyHistory}
           />
 
           <WeatherCard fromPlace={fromPlace} toPlace={toPlace} />
