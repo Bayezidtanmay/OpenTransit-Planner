@@ -16,15 +16,18 @@ class JourneyController extends Controller
       'toLat' => 'required|numeric',
       'toLon' => 'required|numeric',
       'after' => 'nullable|string',
+      'dateTime' => 'nullable|string',
+      'arriveBy' => 'nullable|boolean',
     ]);
 
     $query = <<<'GRAPHQL'
-        query PlanJourney($fromLat: CoordinateValue!, $fromLon: CoordinateValue!, $toLat: CoordinateValue!, $toLon: CoordinateValue!, $after: String) {
+        query PlanJourney($fromLat: CoordinateValue!, $fromLon: CoordinateValue!, $toLat: CoordinateValue!, $toLon: CoordinateValue!, $after: String, $dateTime: PlanDateTimeInput) {
           planConnection(
             origin: { location: { coordinate: { latitude: $fromLat, longitude: $fromLon } } }
             destination: { location: { coordinate: { latitude: $toLat, longitude: $toLon } } }
             first: 20
             after: $after
+            dateTime: $dateTime
           ) {
             pageInfo {
               hasNextPage
@@ -122,18 +125,27 @@ class JourneyController extends Controller
         }
         GRAPHQL;
 
+    $variables = [
+      'fromLat' => (float) $validated['fromLat'],
+      'fromLon' => (float) $validated['fromLon'],
+      'toLat' => (float) $validated['toLat'],
+      'toLon' => (float) $validated['toLon'],
+      'after' => $validated['after'] ?? null,
+      'dateTime' => isset($validated['dateTime'])
+        ? (
+          ($validated['arriveBy'] ?? false)
+          ? ['latestArrival' => $validated['dateTime']]
+          : ['earliestDeparture' => $validated['dateTime']]
+        )
+        : null,
+    ];
+
     $response = Http::withHeaders([
       'Content-Type' => 'application/json',
       'digitransit-subscription-key' => env('DIGITRANSIT_API_KEY'),
     ])->post(env('DIGITRANSIT_ROUTING_URL'), [
       'query' => $query,
-      'variables' => [
-        'fromLat' => (float) $validated['fromLat'],
-        'fromLon' => (float) $validated['fromLon'],
-        'toLat' => (float) $validated['toLat'],
-        'toLon' => (float) $validated['toLon'],
-        'after' => $validated['after'] ?? null,
-      ],
+      'variables' => $variables,
     ]);
 
     if ($response->failed()) {
