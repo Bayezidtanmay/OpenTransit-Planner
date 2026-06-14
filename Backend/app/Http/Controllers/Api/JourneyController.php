@@ -412,8 +412,24 @@ class JourneyController extends Controller
           longName
           mode
           color
+          textColor
+        }
+        stoptimes {
+          scheduledArrival
+          scheduledDeparture
+          realtimeArrival
+          realtimeDeparture
+          stop {
+            gtfsId
+            name
+            code
+            lat
+            lon
+          }
         }
         pattern {
+          code
+          directionId
           patternGeometry {
             points
           }
