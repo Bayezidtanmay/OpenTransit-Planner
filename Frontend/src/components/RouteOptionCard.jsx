@@ -11,14 +11,25 @@ import {
 } from "lucide-react";
 import { formatDuration, formatTime } from "../utils/transportMode";
 
-const isTomorrow = (dateString) => {
+const getDateBadge = (dateString) => {
     const date = new Date(dateString);
     const today = new Date();
 
-    const isDifferentDay = date.toDateString() !== today.toDateString();
-    const hour = date.getHours();
+    const tomorrow = new Date();
+    tomorrow.setDate(today.getDate() + 1);
 
-    return isDifferentDay && hour >= 6;
+    if (date.toDateString() === today.toDateString()) {
+        return null;
+    }
+
+    if (date.toDateString() === tomorrow.toDateString()) {
+        return "Tomorrow";
+    }
+
+    return date.toLocaleDateString([], {
+        day: "2-digit",
+        month: "short",
+    });
 };
 
 const ORANGE_BUS_ROUTES = [
@@ -223,7 +234,7 @@ function RouteOptionCard({ route, selected, onSelect, onClose }) {
     const startTime = formatTime(firstLeg.start.scheduledTime);
     const endTime = formatTime(lastLeg.end.scheduledTime);
     const totalDuration = formatDuration(route.node.duration);
-    const showTomorrow = isTomorrow(firstLeg.start.scheduledTime);
+    const dateBadge = getDateBadge(firstLeg.start.scheduledTime);
 
     const firstTransitLeg = legs.find(
         (leg) => leg.mode !== "WALK" && leg.mode !== "BICYCLE"
@@ -259,9 +270,9 @@ function RouteOptionCard({ route, selected, onSelect, onClose }) {
                         {startTime} - {endTime}
                     </span>
 
-                    {showTomorrow && (
+                    {dateBadge && (
                         <div className="m-3 inline-flex rounded-md bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700">
-                            Tomorrow
+                            {dateBadge}
                         </div>
                     )}
                 </div>

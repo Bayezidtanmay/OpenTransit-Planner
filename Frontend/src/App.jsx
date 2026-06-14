@@ -14,6 +14,9 @@ function App() {
   const [fromPlace, setFromPlace] = useState(null);
   const [toPlace, setToPlace] = useState(null);
 
+  const [timeMode, setTimeMode] = useState("now");
+  const [selectedDateTime, setSelectedDateTime] = useState("");
+
   const [savedPlaces, setSavedPlaces] = useState(() => {
     const storedPlaces = localStorage.getItem(SAVED_PLACES_KEY);
 
@@ -54,6 +57,26 @@ function App() {
     localStorage.setItem(JOURNEY_HISTORY_KEY, JSON.stringify(journeyHistory));
   }, [journeyHistory]);
 
+  const buildJourneyPayload = (afterCursor = null) => {
+    const journeyPayload = {
+      fromLat: fromPlace.lat,
+      fromLon: fromPlace.lon,
+      toLat: toPlace.lat,
+      toLon: toPlace.lon,
+    };
+
+    if (afterCursor) {
+      journeyPayload.after = afterCursor;
+    }
+
+    if (timeMode !== "now" && selectedDateTime) {
+      journeyPayload.dateTime = new Date(selectedDateTime).toISOString();
+      journeyPayload.arriveBy = timeMode === "arrive";
+    }
+
+    return journeyPayload;
+  };
+
   const savePlace = (label, place) => {
     if (!place) return;
 
@@ -93,6 +116,8 @@ function App() {
       fromPlace: from,
       toPlace: to,
       searchedAt: new Date().toISOString(),
+      timeMode,
+      selectedDateTime,
     };
 
     setJourneyHistory((previousHistory) => {
@@ -115,6 +140,8 @@ function App() {
   const useJourneyHistory = (item) => {
     setFromPlace(item.fromPlace);
     setToPlace(item.toPlace);
+    setTimeMode(item.timeMode || "now");
+    setSelectedDateTime(item.selectedDateTime || "");
     setRoutes([]);
     setPageInfo(null);
     setSelectedRouteIndex(null);
@@ -190,6 +217,11 @@ function App() {
       return;
     }
 
+    if (timeMode !== "now" && !selectedDateTime) {
+      alert("Please select date and time.");
+      return;
+    }
+
     setLoading(true);
     setRoutes([]);
     setPageInfo(null);
@@ -197,14 +229,16 @@ function App() {
     setMapOpened(false);
 
     try {
-      const response = await api.post("/journeys/plan", {
-        fromLat: fromPlace.lat,
-        fromLon: fromPlace.lon,
-        toLat: toPlace.lat,
-        toLon: toPlace.lon,
-      });
+      const response = await api.post("/journeys/plan", buildJourneyPayload());
 
-      const planConnection = response.data.data.planConnection;
+      const planConnection = response.data?.data?.planConnection;
+
+      if (!planConnection) {
+        console.error("Journey API response:", response.data);
+        alert("Journey search failed. Check backend/GraphQL response.");
+        return;
+      }
+
       const journeyRoutes = planConnection.edges || [];
 
       setRoutes(journeyRoutes);
@@ -224,15 +258,19 @@ function App() {
     setLoadingMore(true);
 
     try {
-      const response = await api.post("/journeys/plan", {
-        fromLat: fromPlace.lat,
-        fromLon: fromPlace.lon,
-        toLat: toPlace.lat,
-        toLon: toPlace.lon,
-        after: pageInfo.endCursor,
-      });
+      const response = await api.post(
+        "/journeys/plan",
+        buildJourneyPayload(pageInfo.endCursor)
+      );
 
-      const planConnection = response.data.data.planConnection;
+      const planConnection = response.data?.data?.planConnection;
+
+      if (!planConnection) {
+        console.error("Journey API response:", response.data);
+        alert("Loading more journeys failed. Check backend/GraphQL response.");
+        return;
+      }
+
       const newRoutes = planConnection.edges || [];
 
       setRoutes((previousRoutes) => [...previousRoutes, ...newRoutes]);
@@ -317,6 +355,64 @@ function App() {
           />
 
           <WeatherCard fromPlace={fromPlace} toPlace={toPlace} />
+
+          <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div className="mb-3 text-sm font-bold text-slate-700">
+              Journey time
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => setTimeMode("now")}
+                className={`rounded-full px-4 py-2 text-sm font-bold transition ${timeMode === "now"
+                    ? "bg-blue-700 text-white"
+                    : "bg-white text-slate-700 hover:bg-slate-100"
+                  }`}
+              >
+                Leave now
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setTimeMode("leave")}
+                className={`rounded-full px-4 py-2 text-sm font-bold transition ${timeMode === "leave"
+                    ? "bg-blue-700 text-white"
+                    : "bg-white text-slate-700 hover:bg-slate-100"
+                  }`}
+              >
+                Leave at
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setTimeMode("arrive")}
+                className={`rounded-full px-4 py-2 text-sm font-bold transition ${timeMode === "arrive"
+                    ? "bg-blue-700 text-white"
+                    : "bg-white text-slate-700 hover:bg-slate-100"
+                  }`}
+              >
+                Arrive by
+              </button>
+            </div>
+
+            {timeMode !== "now" && (
+              <div className="mt-4">
+                <label className="mb-2 block text-sm font-semibold text-slate-600">
+                  {timeMode === "leave"
+                    ? "Choose departure time"
+                    : "Choose arrival time"}
+                </label>
+
+                <input
+                  type="datetime-local"
+                  value={selectedDateTime}
+                  onChange={(event) => setSelectedDateTime(event.target.value)}
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 font-semibold text-slate-800 outline-none focus:border-blue-500"
+                />
+              </div>
+            )}
+          </div>
 
           <button
             onClick={searchJourney}
