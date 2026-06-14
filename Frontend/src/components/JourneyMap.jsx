@@ -538,6 +538,7 @@ function JourneyMap({ selectedRoute }) {
     const [showUserLocation, setShowUserLocation] = useState(false);
     const [selectedServiceLeg, setSelectedServiceLeg] = useState(null);
     const [showTicketModal, setShowTicketModal] = useState(false);
+    const [selectedStopTripRoute, setSelectedStopTripRoute] = useState(null);
 
     if (!selectedRoute) {
         return (
@@ -590,7 +591,11 @@ function JourneyMap({ selectedRoute }) {
         : [];
 
     const mapLines =
-        selectedServiceRouteLine.length > 0 ? selectedServiceRouteLine : routeLines;
+        selectedStopTripRoute
+            ? []
+            : selectedServiceRouteLine.length > 0
+                ? selectedServiceRouteLine
+                : routeLines;
 
     const isServiceRouteMode = selectedServiceRouteLine.length > 0;
 
@@ -713,6 +718,33 @@ function JourneyMap({ selectedRoute }) {
 
     const start = [legs[0].from.lat, legs[0].from.lon];
 
+    const showStopTripRoute = async ({ tripId, routeShortName }) => {
+        try {
+            const response = await api.get("/journeys/trip-route", {
+                params: { tripId },
+            });
+
+            const trip = response.data;
+
+            if (!trip?.pattern?.patternGeometry?.points) {
+                alert("Route geometry is not available for this departure.");
+                return;
+            }
+
+            setSelectedStopTripRoute({
+                routeShortName: routeShortName || trip.route?.shortName,
+                routeColor: trip.route?.color
+                    ? `#${trip.route.color.replace("#", "")}`
+                    : "#007ac9",
+                positions: polyline.decode(trip.pattern.patternGeometry.points),
+            });
+        } catch (error) {
+            console.error("Trip route failed:", error);
+            alert("Failed to load this route.");
+        }
+    };
+
+
     return (
         <div className="bg-white rounded-2xl shadow overflow-hidden">
             <div className="p-4 border-b">
@@ -732,8 +764,8 @@ function JourneyMap({ selectedRoute }) {
                             <button
                                 onClick={() => setShowLiveVehicles((value) => !value)}
                                 className={`rounded-full px-4 py-2 text-sm font-semibold transition ${showLiveVehicles
-                                        ? "bg-green-100 text-green-700"
-                                        : "bg-slate-100 text-slate-700"
+                                    ? "bg-green-100 text-green-700"
+                                    : "bg-slate-100 text-slate-700"
                                     }`}
                             >
                                 {showLiveVehicles ? "Hide live vehicles" : "Show live vehicles"}
@@ -742,12 +774,21 @@ function JourneyMap({ selectedRoute }) {
                             <button
                                 onClick={() => setShowUserLocation((value) => !value)}
                                 className={`rounded-full px-4 py-2 text-sm font-semibold transition ${showUserLocation
-                                        ? "bg-blue-100 text-blue-700"
-                                        : "bg-slate-100 text-slate-700"
+                                    ? "bg-blue-100 text-blue-700"
+                                    : "bg-slate-100 text-slate-700"
                                     }`}
                             >
                                 {showUserLocation ? "Hide my location" : "Show my location"}
                             </button>
+
+                            {selectedStopTripRoute && (
+                                <button
+                                    onClick={() => setSelectedStopTripRoute(null)}
+                                    className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+                                >
+                                    Back to journey route
+                                </button>
+                            )}
                         </>
                     )}
                 </div>
@@ -812,7 +853,7 @@ function JourneyMap({ selectedRoute }) {
                         />
                     ))}
 
-                    <TransitStopsLayer />
+                    <TransitStopsLayer onSelectTripRoute={showStopTripRoute} />
 
                     <FitRouteBounds routeLines={mapLines} />
 
@@ -831,7 +872,20 @@ function JourneyMap({ selectedRoute }) {
                         />
                     ))}
 
-                    {!isServiceRouteMode &&
+                    {selectedStopTripRoute && (
+                        <Polyline
+                            positions={selectedStopTripRoute.positions}
+                            pathOptions={{
+                                color: selectedStopTripRoute.routeColor,
+                                weight: 9,
+                                opacity: 0.95,
+                                lineCap: "round",
+                                lineJoin: "round",
+                            }}
+                        />
+                    )}
+
+                    {!isServiceRouteMode && !selectedStopTripRoute &&
                         routeLabels.map((label) => (
                             <Marker
                                 key={label.key}
@@ -849,7 +903,7 @@ function JourneyMap({ selectedRoute }) {
                             </Marker>
                         ))}
 
-                    {!isServiceRouteMode &&
+                    {!isServiceRouteMode && !selectedStopTripRoute &&
                         stopMarkers.map((marker) => (
                             <Marker
                                 key={marker.key}
@@ -869,7 +923,7 @@ function JourneyMap({ selectedRoute }) {
                             </Marker>
                         ))}
 
-                    {!isServiceRouteMode &&
+                    {!isServiceRouteMode && !selectedStopTripRoute &&
                         transferBadges.map((badge) => (
                             <Marker
                                 key={badge.key}

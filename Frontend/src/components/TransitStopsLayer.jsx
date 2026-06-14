@@ -116,7 +116,7 @@ const getStopIcon = (stop, zoom) => {
     });
 };
 
-function TransitStopsLayer() {
+function TransitStopsLayer({ onSelectTripRoute }) {
     const [stops, setStops] = useState([]);
     const [mapInfo, setMapInfo] = useState(null);
     const [stopBoards, setStopBoards] = useState({});
@@ -228,7 +228,7 @@ function TransitStopsLayer() {
                         }}
                     >
                         <Popup>
-                            <div className="min-w-[240px]">
+                            <div className="min-w-[250px]">
                                 <div className="font-black text-slate-900">
                                     {stop.name}
                                 </div>
@@ -269,14 +269,24 @@ function TransitStopsLayer() {
                                         return (
                                             <div
                                                 key={`${item.trip?.gtfsId}-${index}`}
-                                                className="grid grid-cols-[46px_1fr_52px] items-center gap-2 border-b border-slate-100 py-2 last:border-b-0"
+                                                className="grid grid-cols-[52px_1fr_52px] items-center gap-2 border-b border-slate-100 py-2 last:border-b-0"
                                             >
-                                                <div
-                                                    className="rounded-md px-2 py-1 text-center text-xs font-black text-white"
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        if (!item.trip?.gtfsId) return;
+
+                                                        onSelectTripRoute?.({
+                                                            tripId: item.trip.gtfsId,
+                                                            routeShortName: route?.shortName,
+                                                        });
+                                                    }}
+                                                    className="rounded-md px-2 py-1 text-center text-xs font-black text-white transition hover:scale-105"
                                                     style={{ backgroundColor: routeColor }}
+                                                    title="Show this route on map"
                                                 >
                                                     {route?.shortName || "?"}
-                                                </div>
+                                                </button>
 
                                                 <div className="min-w-0">
                                                     <div className="truncate text-sm font-bold text-slate-800">
