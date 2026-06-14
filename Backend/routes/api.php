@@ -19,3 +19,4 @@ Route::get('/journeys/stop-schedule', [JourneyController::class, 'stopSchedule']
 Route::get('/journeys/map-stops', [JourneyController::class, 'mapStops']);
 Route::get('/journeys/alerts', [JourneyController::class, 'alerts']);
 Route::get('/journeys/stop-board', [JourneyController::class, 'stopBoard']);
+Route::get('/journeys/trip-route', [JourneyController::class, 'tripRoute']);

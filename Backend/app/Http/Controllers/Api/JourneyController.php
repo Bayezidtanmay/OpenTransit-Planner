@@ -395,4 +395,50 @@ class JourneyController extends Controller
 
     return response()->json($response->json('data.stop'));
   }
+
+  public function tripRoute(Request $request)
+  {
+    $validated = $request->validate([
+      'tripId' => 'required|string',
+    ]);
+
+    $query = <<<'GRAPHQL'
+    query TripRoute($tripId: String!) {
+      trip(id: $tripId) {
+        gtfsId
+        route {
+          gtfsId
+          shortName
+          longName
+          mode
+          color
+        }
+        pattern {
+          patternGeometry {
+            points
+          }
+        }
+      }
+    }
+    GRAPHQL;
+
+    $response = Http::withHeaders([
+      'Content-Type' => 'application/json',
+      'digitransit-subscription-key' => env('DIGITRANSIT_API_KEY'),
+    ])->post(env('DIGITRANSIT_ROUTING_URL'), [
+      'query' => $query,
+      'variables' => [
+        'tripId' => $validated['tripId'],
+      ],
+    ]);
+
+    if ($response->failed()) {
+      return response()->json([
+        'message' => 'Failed to fetch trip route',
+        'error' => $response->json(),
+      ], $response->status());
+    }
+
+    return response()->json($response->json('data.trip'));
+  }
 }
