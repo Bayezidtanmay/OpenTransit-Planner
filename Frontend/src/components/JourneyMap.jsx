@@ -718,7 +718,14 @@ function JourneyMap({ selectedRoute }) {
 
     const start = [legs[0].from.lat, legs[0].from.lon];
 
-    const showStopTripRoute = async ({ tripId, routeShortName }) => {
+    const showStopTripRoute = async ({
+        tripId,
+        routeShortName,
+        stopId,
+        stopName,
+        stopLat,
+        stopLon,
+    }) => {
         try {
             const response = await api.get("/journeys/trip-route", {
                 params: { tripId },
@@ -731,19 +738,32 @@ function JourneyMap({ selectedRoute }) {
                 return;
             }
 
-            setSelectedStopTripRoute({
-                routeShortName: routeShortName || trip.route?.shortName,
-                routeColor: trip.route?.color
-                    ? `#${trip.route.color.replace("#", "")}`
-                    : "#007ac9",
-                positions: polyline.decode(trip.pattern.patternGeometry.points),
+            setSelectedStopTripRoute(null);
+
+            setSelectedServiceLeg({
+                mode: trip.route?.mode || "BUS",
+                route: trip.route,
+                trip,
+                from: {
+                    name: stopName,
+                    lat: stopLat,
+                    lon: stopLon,
+                    stop: {
+                        gtfsId: stopId,
+                        name: stopName,
+                    },
+                },
+                to: {
+                    name:
+                        trip.stoptimes?.[trip.stoptimes.length - 1]?.stop?.name ||
+                        "Last stop",
+                },
             });
         } catch (error) {
             console.error("Trip route failed:", error);
             alert("Failed to load this route.");
         }
     };
-
 
     return (
         <div className="bg-white rounded-2xl shadow overflow-hidden">

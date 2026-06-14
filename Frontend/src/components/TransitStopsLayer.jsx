@@ -279,6 +279,10 @@ function TransitStopsLayer({ onSelectTripRoute }) {
                                                         onSelectTripRoute?.({
                                                             tripId: item.trip.gtfsId,
                                                             routeShortName: route?.shortName,
+                                                            stopId: stop.gtfsId,
+                                                            stopName: stop.name,
+                                                            stopLat: stop.lat,
+                                                            stopLon: stop.lon,
                                                         });
                                                     }}
                                                     className="rounded-md px-2 py-1 text-center text-xs font-black text-white transition hover:scale-105"
