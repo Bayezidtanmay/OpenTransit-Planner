@@ -115,9 +115,9 @@ function UserLocationMarker({ enabled }) {
                 alert("Unable to track your live location.");
             },
             {
-                enableHighAccuracy: true,
-                maximumAge: 0,
-                timeout: 10000,
+                enableHighAccuracy: false,
+                maximumAge: 60000,
+                timeout: 30000,
             }
         );
 

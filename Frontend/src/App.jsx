@@ -204,9 +204,9 @@ function App() {
         alert("Unable to get your current location.");
       },
       {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 30000,
+        enableHighAccuracy: false,
+        timeout: 30000,
+        maximumAge: 60000,
       }
     );
   };
