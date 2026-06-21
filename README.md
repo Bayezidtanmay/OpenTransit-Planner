@@ -300,9 +300,6 @@ GET /api/weather
 
 # 📸 Screenshots
 
-Add screenshots of the application here.
-
-```markdown
 ## Journey Search
 
 ![Home Page](Screenshots/Journey_Search.png)
@@ -314,7 +311,6 @@ Add screenshots of the application here.
 ## Interactive Map
 
 ![Interactive Map](Screenshots/Interactive_Map.png)
-```
 
 ---
 
