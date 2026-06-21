@@ -91,6 +91,44 @@ The project was developed as a portfolio-grade full-stack application demonstrat
 
 ---
 
+
+## 🌐 Live Demo
+
+The application is deployed and publicly accessible:
+
+### Frontend (Vercel)
+
+[OpenTransit Planner Live Demo](https://open-transit-planner.vercel.app/)
+
+### Backend API (Render)
+
+[Backend API](https://opentransit-backend.onrender.com)
+
+---
+
+## 🚀 Try It Out
+
+1. Search for a starting location and destination.
+2. View public transport route options across the Helsinki region.
+3. Explore route details and interactive maps.
+4. Check weather conditions for selected locations.
+5. Save favorite places and reuse previous journey searches.
+6. Use your current location for instant journey planning.
+
+> Note: The backend is hosted on Render's free tier and may take a few seconds to wake up after periods of inactivity.
+
+# ☁️ Deployment
+
+### Frontend
+- Hosted on Vercel
+- Automatic deployment from GitHub
+
+### Backend
+- Hosted on Render
+- Dockerized Laravel application
+- Automatic deployment from GitHub
+
+
 ## 🛠️ Tech Stack
 
 ### Frontend
@@ -105,8 +143,8 @@ The project was developed as a portfolio-grade full-stack application demonstrat
 
 ### Backend
 
-* Laravel 11
-* PHP 8+
+* Laravel 13
+* PHP 8.4+
 * Laravel HTTP Client
 * Laravel API Routes
 
@@ -348,7 +386,7 @@ This project demonstrates:
 
 **Bayezid Rahman Tonmoy**
 
-Full Stack Web Developer
+Full Stack Web Developer | React • Laravel • JavaScript • PHP
 
 GitHub:
 https://github.com/Bayezidtanmay
@@ -357,5 +395,4 @@ https://github.com/Bayezidtanmay
 
 # 📄 License
 
-This project is intended for educational and portfolio purposes.
-
+This project was developed for educational and portfolio purposes. Feel free to explore the codebase, learn from the implementation, and use it as inspiration for your own projects.
